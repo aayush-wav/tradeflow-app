@@ -165,10 +165,17 @@ pub fn get_company_profile(state: State<DbState>) -> ApiResponse<CompanyProfile>
 #[tauri::command]
 pub fn create_product(state: State<DbState>, product: Product) -> ApiResponse<String> {
     let conn = state.0.lock().unwrap();
-    let seq: i64 = conn
-        .query_row("SELECT COUNT(*) FROM products", [], |r| r.get(0))
+    
+    // Find the max sequence number from existing product_ids like PRD-XXXX
+    let max_seq: i64 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(CAST(SUBSTR(product_id, 5) AS INTEGER)), 0) FROM products",
+            [],
+            |r| r.get(0)
+        )
         .unwrap_or(0);
-    let product_id = format!("PRD-{:04}", seq + 1);
+        
+    let product_id = format!("PRD-{:04}", max_seq + 1);
     let id = Uuid::new_v4().to_string();
     let now = Utc::now().to_rfc3339();
     let r = conn.execute(
@@ -372,6 +379,7 @@ pub fn create_invoice(state: State<DbState>, invoice: Invoice, items: Vec<Invoic
         ],
     );
     if let Err(e) = r { return ApiResponse::err(&e.to_string()); }
+    
     for item in items {
         let item_id = Uuid::new_v4().to_string();
         let _ = conn.execute(
@@ -384,6 +392,29 @@ pub fn create_invoice(state: State<DbState>, invoice: Invoice, items: Vec<Invoic
                 item.discount_paisa, item.amount_paisa
             ],
         );
+
+        // --- NEW: Automated Stock Deduction ---
+        if let Some(pid) = item.product_id {
+            if !pid.is_empty() {
+                let tx_id = Uuid::new_v4().to_string();
+                let tx_date = invoice.invoice_date.clone();
+                let ref_val = format!("Invoice: {}", invoice.invoice_number);
+                
+                // 1. Create Inventory Transaction record
+                let _ = conn.execute(
+                    "INSERT INTO inventory_transactions (id,product_id,transaction_type,quantity_in,
+                     quantity_out,reference,notes,transaction_date,created_at)
+                     VALUES (?1,?2,'Sale',0,?3,?4,'Auto-generated from invoice',?5,?6)",
+                    params![tx_id, pid, item.quantity as i64, ref_val, tx_date, now],
+                );
+
+                // 2. Update Product current_stock
+                let _ = conn.execute(
+                    "UPDATE products SET current_stock = current_stock - ?1, updated_at=?2 WHERE id=?3",
+                    params![item.quantity as i64, now, pid],
+                );
+            }
+        }
     }
     ApiResponse::ok(id)
 }
@@ -445,11 +476,16 @@ pub fn update_invoice_status(state: State<DbState>, id: String, status: String) 
 #[tauri::command]
 pub fn get_next_invoice_number(state: State<DbState>, prefix: String) -> ApiResponse<String> {
     let conn = state.0.lock().unwrap();
-    let count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM invoices WHERE invoice_number LIKE ?1",
-            params![format!("{}%", prefix)], |r| r.get(0))
+    let pattern = format!("{}%", prefix);
+    let max_seq: i64 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(CAST(SUBSTR(invoice_number, LENGTH(?1) + 2) AS INTEGER)), 0) 
+             FROM invoices WHERE invoice_number LIKE ?1",
+            params![pattern],
+            |r| r.get(0)
+        )
         .unwrap_or(0);
-    ApiResponse::ok(format!("{}-{:04}", prefix, count + 1))
+    ApiResponse::ok(format!("{}-{:04}", prefix, max_seq + 1))
 }
 
 #[tauri::command]

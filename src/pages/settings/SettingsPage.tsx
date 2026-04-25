@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { useProfileStore } from "../../stores";
-import { PageHeader, PageLoader } from "../../components/shared";
+import { PageHeader, PageLoader, Toast } from "../../components/shared";
 import { CURRENCIES, PROVINCES_NEPAL, FISCAL_YEAR_START_MONTH } from "../../constants";
-import { Save, Building2, Landmark, Globe, Phone, Mail, MapPin, Upload } from "lucide-react";
+import { Save, Building2, Landmark, Globe, Phone, Mail, MapPin, Upload, FileText } from "lucide-react";
 import type { CompanyProfile } from "../../types";
 
 export function SettingsPage() {
   const { profile, isLoading, fetchProfile, saveProfile } = useProfileStore();
   const [editing, setEditing] = useState<Partial<CompanyProfile> | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   useEffect(() => {
     fetchProfile().then(() => {
@@ -50,12 +51,14 @@ export function SettingsPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editing?.company_name) return;
+    setSaving(true);
     try {
       await saveProfile(editing as CompanyProfile);
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
-    } catch {
-      alert("Failed to save profile.");
+      setToast({ message: "Settings saved successfully", type: "success" });
+    } catch (err: any) {
+      setToast({ message: err.message || "Failed to save settings", type: "error" });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -184,19 +187,24 @@ export function SettingsPage() {
         </div>
 
         <div className="flex items-center justify-between sticky bottom-0 bg-slate-50 py-4 border-t border-slate-200">
-           {success ? (
-               <p className="text-green-600 text-sm font-medium animate-pulse">✓ Profile saved successfully!</p>
-           ) : (
-               <p className="text-slate-500 text-xs italic">All data is stored locally on this machine.</p>
-           )}
+           <p className="text-slate-500 text-xs italic">All data is stored locally on this machine.</p>
            <button
              type="submit"
+             disabled={saving}
              className="btn-primary flex items-center gap-2 shadow-lg"
            >
-             <Save size={18} /> Save Settings
+             <Save size={18} /> {saving ? "Saving..." : "Save Settings"}
            </button>
         </div>
       </form>
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }
@@ -218,6 +226,4 @@ function Field({ label, value, onChange, required, icon }: { label: string, valu
     )
 }
 
-function FileText({ size, className }: { size?: number, className?: string }) {
-    return <Building2 size={size} className={className} />
-}
+

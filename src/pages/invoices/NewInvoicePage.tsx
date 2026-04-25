@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { useInvoiceStore, usePartyStore, useProductStore, useProfileStore } from "../../stores";
 import { api } from "../../api";
-import { PageHeader, PageLoader } from "../../components/shared";
+import { PageHeader, PageLoader, Toast } from "../../components/shared";
 import { formatCurrency, rupeesToPaisa, paisaToRupees, numberToWords, getCurrentNepalFiscalYear } from "../../utils";
 import { INVOICE_TYPES, CURRENCIES, INCOTERMS, VAT_RATE } from "../../constants";
 import { Plus, Trash2, Save } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import type { Invoice, InvoiceItem, Product } from "../../types";
+import type { Invoice, InvoiceItem } from "../../types";
 
 export function NewInvoicePage() {
   const navigate = useNavigate();
@@ -16,6 +16,7 @@ export function NewInvoicePage() {
   const { profile, fetchProfile } = useProfileStore();
   const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const [invoiceType, setInvoiceType] = useState("Tax Invoice");
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -23,12 +24,12 @@ export function NewInvoicePage() {
   const [dueDate, setDueDate] = useState("");
   const [partyId, setPartyId] = useState("");
   const [shipToName, setShipToName] = useState("");
-  const [shipToAddress, setShipToAddress] = useState("");
+  const [shipToAddress] = useState("");
   const [incoterm, setIncoterm] = useState("FOB");
   const [portOfLoading, setPortOfLoading] = useState("");
-  const [portOfDischarge, setPortOfDischarge] = useState("");
-  const [countryOfOrigin, setCountryOfOrigin] = useState("Nepal");
-  const [countryOfDest, setCountryOfDest] = useState("");
+  const [portOfDischarge] = useState("");
+  const [countryOfOrigin] = useState("Nepal");
+  const [countryOfDest] = useState("");
   const [currency, setCurrency] = useState("NPR");
   const [exchangeRate, setExchangeRate] = useState("1");
   const [applyVat, setApplyVat] = useState(true);
@@ -160,8 +161,10 @@ export function NewInvoicePage() {
       }));
 
       await addInvoice(invoice, invoiceItems);
-      navigate("/invoices");
-    } finally {
+      setToast({ message: "Invoice created successfully", type: "success" });
+      setTimeout(() => navigate("/invoices"), 1500);
+    } catch (err: any) {
+      setToast({ message: err.message || "Failed to save invoice", type: "error" });
       setSaving(false);
     }
   };
@@ -362,6 +365,14 @@ export function NewInvoicePage() {
           </div>
         </div>
       </div>
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   StatusBadge,
   ConfirmDialog,
   Modal,
+  Toast,
 } from "../../components/shared";
 import { formatCurrency, rupeesToPaisa, paisaToRupees } from "../../utils";
 import {
@@ -45,6 +46,7 @@ export function ProductsPage() {
   const [buyingPrice, setBuyingPrice] = useState("");
   const [sellingPrice, setSellingPrice] = useState("");
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -76,11 +78,15 @@ export function ProductsPage() {
       } as Product;
       if (editing.id) {
         await editProduct(product);
+        setToast({ message: "Product updated successfully", type: "success" });
       } else {
         await addProduct(product);
+        setToast({ message: "Product added successfully", type: "success" });
       }
       setShowModal(false);
       setEditing(null);
+    } catch (err: any) {
+      setToast({ message: err.message || "Failed to save product", type: "error" });
     } finally {
       setSaving(false);
     }
@@ -88,7 +94,12 @@ export function ProductsPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    await removeProduct(deleteTarget.id);
+    try {
+      await removeProduct(deleteTarget.id);
+      setToast({ message: "Product deleted successfully", type: "success" });
+    } catch (err: any) {
+      setToast({ message: err.message || "Failed to delete product", type: "error" });
+    }
     setDeleteTarget(null);
   };
 
@@ -380,6 +391,14 @@ export function ProductsPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

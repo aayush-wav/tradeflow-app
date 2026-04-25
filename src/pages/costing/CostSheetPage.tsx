@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useProductStore, useShipmentStore } from "../../stores";
-import { PageHeader, PageLoader } from "../../components/shared";
+import { PageHeader, PageLoader, Toast } from "../../components/shared";
 import {
   formatCurrency,
   rupeesToPaisa,
@@ -90,6 +90,7 @@ export function CostSheetPage() {
   const { saveRecord } = useShipmentStore();
   const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [name, setName] = useState("");
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState("0");
@@ -97,7 +98,7 @@ export function CostSheetPage() {
 
   const [transportMode, setTransportMode] = useState("Road");
   const [origin, setOrigin] = useState("");
-  const [destination, setDestination] = useState(BORDER_CROSSINGS[0]);
+  const [destination, setDestination] = useState<string>(BORDER_CROSSINGS[0]);
   const [transportCost, setTransportCost] = useState("0");
   const [loadingUnloading, setLoadingUnloading] = useState("0");
   const [packaging, setPackaging] = useState("0");
@@ -242,7 +243,9 @@ export function CostSheetPage() {
         updated_at: "",
       };
       await saveRecord(record);
-      alert("Cost sheet saved successfully.");
+      setToast({ message: "Cost sheet saved successfully", type: "success" });
+    } catch (err: any) {
+      setToast({ message: err.message || "Failed to save record", type: "error" });
     } finally {
       setSaving(false);
     }
@@ -514,6 +517,14 @@ export function CostSheetPage() {
           </div>
         </div>
       </div>
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

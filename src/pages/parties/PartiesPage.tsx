@@ -7,6 +7,7 @@ import {
   SearchInput,
   ConfirmDialog,
   Modal,
+  Toast,
 } from "../../components/shared";
 import { PARTY_TYPES, PAYMENT_TERMS, CURRENCIES } from "../../constants";
 import { Plus, Edit2, Trash2, Users } from "lucide-react";
@@ -40,6 +41,7 @@ export function PartiesPage({ partyType }: PartiesPageProps) {
   const [editing, setEditing] = useState<Partial<Party> | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Party | null>(null);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   useEffect(() => {
     fetchParties(partyType);
@@ -62,12 +64,16 @@ export function PartiesPage({ partyType }: PartiesPageProps) {
       const party = { ...EMPTY_PARTY, ...editing } as Party;
       if (editing.id) {
         await editParty(party);
+        setToast({ message: "Updated successfully", type: "success" });
       } else {
         await addParty(party);
+        setToast({ message: "Added successfully", type: "success" });
       }
       setShowModal(false);
       setEditing(null);
       await fetchParties(partyType);
+    } catch (err: any) {
+      setToast({ message: err.message || "Operation failed", type: "error" });
     } finally {
       setSaving(false);
     }
@@ -75,9 +81,14 @@ export function PartiesPage({ partyType }: PartiesPageProps) {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    await removeParty(deleteTarget.id);
+    try {
+      await removeParty(deleteTarget.id);
+      setToast({ message: "Deleted successfully", type: "success" });
+      await fetchParties(partyType);
+    } catch (err: any) {
+      setToast({ message: err.message || "Failed to delete", type: "error" });
+    }
     setDeleteTarget(null);
-    await fetchParties(partyType);
   };
 
   const filtered = parties.filter(
@@ -338,6 +349,14 @@ export function PartiesPage({ partyType }: PartiesPageProps) {
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

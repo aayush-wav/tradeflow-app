@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -312,6 +312,43 @@ export function SearchInput({
         placeholder={placeholder}
         className="input-field pl-10"
       />
+    </div>
+  );
+}
+
+// Toast Component
+interface ToastProps {
+  message: string;
+  type: "success" | "error" | "info";
+  onClose: () => void;
+  duration?: number;
+}
+
+export function Toast({ message, type, onClose, duration = 3000 }: ToastProps) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, duration);
+    return () => clearTimeout(timer);
+  }, [onClose, duration]);
+
+  const bgColors = {
+    success: "bg-green-600",
+    error: "bg-red-600",
+    info: "bg-blue-600",
+  };
+
+  return (
+    <div className={`fixed bottom-6 right-6 z-[200] ${bgColors[type]} text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300`}>
+      {type === "success" && (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+      )}
+      {type === "error" && (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      )}
+      <p className="text-sm font-medium">{message}</p>
     </div>
   );
 }

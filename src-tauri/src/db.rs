@@ -1,10 +1,6 @@
-use rusqlite::{Connection, Result, params};
+use rusqlite::{Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
-use tauri::State;
-use bcrypt::{hash, verify, DEFAULT_COST};
-use uuid::Uuid;
-use chrono::Utc;
 
 pub struct DbState(pub Mutex<Connection>);
 
@@ -42,14 +38,14 @@ pub struct CompanyProfile {
     pub default_currency: String,
     pub fiscal_year_start_month: i32,
     pub terms_and_conditions: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Product {
     pub id: String,
-    pub product_id: String,
+    pub product_id: Option<String>,
     pub name: String,
     pub category: String,
     pub hs_code: String,
@@ -61,8 +57,8 @@ pub struct Product {
     pub buying_price_paisa: i64,
     pub selling_price_paisa: i64,
     pub status: String,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -75,7 +71,7 @@ pub struct InventoryTransaction {
     pub reference: Option<String>,
     pub notes: Option<String>,
     pub transaction_date: String,
-    pub created_at: String,
+    pub created_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -93,8 +89,8 @@ pub struct Party {
     pub payment_terms: Option<String>,
     pub default_currency: String,
     pub notes: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -128,8 +124,8 @@ pub struct Invoice {
     pub terms_and_conditions: Option<String>,
     pub notes: Option<String>,
     pub shipment_record_id: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -156,7 +152,7 @@ pub struct Payment {
     pub payment_method: String,
     pub reference: Option<String>,
     pub notes: Option<String>,
-    pub created_at: String,
+    pub created_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -207,8 +203,8 @@ pub struct ShipmentRecord {
     pub custom_costs_json: Option<String>,
     pub incoterm: Option<String>,
     pub invoice_id: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -221,8 +217,8 @@ pub struct Route {
     pub estimated_freight_cost_paisa: i64,
     pub estimated_transit_days: i32,
     pub notes: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -232,8 +228,8 @@ pub struct ProfitTarget {
     pub target_margin_percent: f64,
     pub target_margin_per_unit_paisa: Option<i64>,
     pub notes: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
 }
 
 pub fn run_migrations(conn: &Connection) -> Result<()> {
