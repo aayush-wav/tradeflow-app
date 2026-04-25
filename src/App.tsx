@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./stores";
+import { SplashScreen } from "./components/shared";
 import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/auth/LoginPage";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
@@ -16,7 +18,23 @@ import { SettingsPage } from "./pages/settings/SettingsPage";
 import { ReportsPage } from "./pages/reports/ReportsPage";
 
 export default function App() {
-  const { isLoggedIn } = useAuthStore();
+  const { isLoggedIn, checkExistingAccount } = useAuthStore();
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  useEffect(() => {
+    // Simulate a professional boot sequence to ensure the splash screen is visible
+    const timer = setTimeout(() => {
+        checkExistingAccount().finally(() => {
+            setIsInitializing(false);
+        });
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [checkExistingAccount]);
+
+  if (isInitializing) {
+    return <SplashScreen />;
+  }
 
   return (
     <Router>

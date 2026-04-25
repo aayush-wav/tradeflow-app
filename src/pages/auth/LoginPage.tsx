@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuthStore } from "../../stores";
-import { LoadingSpinner, SplashScreen } from "../../components/shared";
+import { LoadingSpinner } from "../../components/shared";
 
 export function LoginPage() {
   const { login, signup, isLoading, checkExistingAccount, enterDemoMode } = useAuthStore();
@@ -46,7 +46,7 @@ export function LoginPage() {
   };
 
   if (hasAccount === null) {
-    return <SplashScreen />;
+    return null;
   }
 
   return (
@@ -178,8 +178,8 @@ export function LoginPage() {
             </button>
           </form>
 
-          {hasAccount && (
-            <div className="mt-4 flex flex-col items-center gap-3">
+          <div className="mt-4 flex flex-col items-center gap-3">
+            {hasAccount && (
               <button
                 onClick={() => setIsSignup(!isSignup)}
                 className="text-sm text-blue-600 hover:text-blue-700"
@@ -188,22 +188,22 @@ export function LoginPage() {
                   ? "Already have an account? Sign in"
                   : "Need to create an account? Sign up"}
               </button>
-              
-              <div className="flex items-center gap-2 w-full">
-                <div className="h-px bg-slate-200 flex-1"></div>
-                <span className="text-[10px] text-slate-400 uppercase tracking-widest px-2">OR</span>
-                <div className="h-px bg-slate-200 flex-1"></div>
-              </div>
-
-              <button
-                onClick={enterDemoMode}
-                className="text-sm font-medium text-slate-600 hover:text-slate-900 flex items-center gap-2 transition-colors"
-                type="button"
-              >
-                View Live Demo →
-              </button>
+            )}
+            
+            <div className="flex items-center gap-2 w-full">
+              <div className="h-px bg-slate-200 flex-1"></div>
+              <span className="text-[10px] text-slate-400 uppercase tracking-widest px-2">OR</span>
+              <div className="h-px bg-slate-200 flex-1"></div>
             </div>
-          )}
+
+            <button
+              onClick={enterDemoMode}
+              className="text-sm font-medium text-slate-600 hover:text-slate-900 flex items-center gap-2 transition-colors"
+              type="button"
+            >
+              View Live Demo →
+            </button>
+          </div>
         </div>
       </div>
     </div>
