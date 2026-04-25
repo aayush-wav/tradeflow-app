@@ -75,6 +75,27 @@ export function PageLoader() {
   );
 }
 
+export function SplashScreen() {
+  return (
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white">
+      <div className="flex flex-col items-center animate-in fade-in zoom-in duration-500">
+        <div className="w-24 h-24 bg-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-2xl shadow-blue-200">
+          <svg className="w-14 h-14 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+        </div>
+        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">TradeFlow Nepal</h1>
+        <p className="text-slate-500 mt-2 font-medium">Initializing Business Environment...</p>
+        <div className="mt-12">
+            <div className="w-48 h-1 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-600 animate-progress"></div>
+            </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface EmptyStateProps {
   icon?: React.ReactNode;
   title: string;

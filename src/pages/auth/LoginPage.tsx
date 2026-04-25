@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useAuthStore } from "../../stores";
-import { LoadingSpinner } from "../../components/shared";
+import { LoadingSpinner, SplashScreen } from "../../components/shared";
 
 export function LoginPage() {
-  const { login, signup, isLoading, checkExistingAccount } = useAuthStore();
+  const { login, signup, isLoading, checkExistingAccount, enterDemoMode } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -46,11 +46,7 @@ export function LoginPage() {
   };
 
   if (hasAccount === null) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-slate-50">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   return (
@@ -183,7 +179,7 @@ export function LoginPage() {
           </form>
 
           {hasAccount && (
-            <div className="mt-4 text-center">
+            <div className="mt-4 flex flex-col items-center gap-3">
               <button
                 onClick={() => setIsSignup(!isSignup)}
                 className="text-sm text-blue-600 hover:text-blue-700"
@@ -191,6 +187,20 @@ export function LoginPage() {
                 {isSignup
                   ? "Already have an account? Sign in"
                   : "Need to create an account? Sign up"}
+              </button>
+              
+              <div className="flex items-center gap-2 w-full">
+                <div className="h-px bg-slate-200 flex-1"></div>
+                <span className="text-[10px] text-slate-400 uppercase tracking-widest px-2">OR</span>
+                <div className="h-px bg-slate-200 flex-1"></div>
+              </div>
+
+              <button
+                onClick={enterDemoMode}
+                className="text-sm font-medium text-slate-600 hover:text-slate-900 flex items-center gap-2 transition-colors"
+                type="button"
+              >
+                View Live Demo →
               </button>
             </div>
           )}

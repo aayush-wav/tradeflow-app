@@ -20,6 +20,7 @@ interface AuthStore {
   signup: (email: string, password: string) => Promise<void>;
   logout: () => void;
   checkExistingAccount: () => Promise<boolean>;
+  enterDemoMode: () => void;
 }
 
 export const useAuthStore = create<AuthStore>((set) => ({
@@ -53,6 +54,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       return false;
     }
   },
+  enterDemoMode: () => set({ userId: "demo-user", isLoggedIn: true }),
 }));
 
 interface ProfileStore {
