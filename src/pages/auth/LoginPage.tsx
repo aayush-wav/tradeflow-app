@@ -6,6 +6,7 @@ export function LoginPage() {
   const { login, signup, isLoading, checkExistingAccount } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [hasAccount, setHasAccount] = useState<boolean | null>(null);
   const [isSignup, setIsSignup] = useState(false);
@@ -25,6 +26,11 @@ export function LoginPage() {
 
     if (!email || !password) {
       setError("Please fill in all required fields.");
+      return;
+    }
+
+    if (isSignup && password !== confirmPassword) {
+      setError("Passwords do not match.");
       return;
     }
 
@@ -124,20 +130,40 @@ export function LoginPage() {
               />
             </div>
 
-            <div>
-              <label htmlFor="password" className="label-text">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input-field"
-                placeholder="Enter password"
-                required
-                minLength={6}
-              />
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label htmlFor="password" className="label-text">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input-field"
+                  placeholder="Enter password"
+                  required
+                  minLength={6}
+                />
+              </div>
+
+              {isSignup && (
+                <div>
+                  <label htmlFor="confirm-password" className="label-text">
+                    Confirm Password
+                  </label>
+                  <input
+                    id="confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="input-field"
+                    placeholder="Confirm your password"
+                    required
+                    minLength={6}
+                  />
+                </div>
+              )}
             </div>
 
             {error && (
