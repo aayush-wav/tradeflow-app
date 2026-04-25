@@ -102,29 +102,29 @@ export function InvoicesListPage() {
                 <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filtered.map((inv) => (
-                <tr key={inv.id} className="hover:bg-slate-50 cursor-pointer">
-                  <td className="px-4 py-3 text-sm font-medium text-blue-600 font-mono">
+                <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 cursor-pointer transition-colors">
+                  <td className="px-4 py-3 text-sm font-medium text-blue-600 dark:text-blue-400 font-mono">
                     {inv.invoice_number}
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-600">
+                  <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
                     {inv.invoice_type}
                   </td>
                   <td className="px-4 py-3">
-                    <p className="text-sm font-medium text-slate-900">
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">
                       {inv.party_name}
                     </p>
                     {inv.party_country && (
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         {inv.party_country}
                       </p>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-600">
+                  <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
                     {formatADDate(inv.invoice_date)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-right font-medium text-slate-900">
+                  <td className="px-4 py-3 text-sm text-right font-medium text-slate-900 dark:text-white">
                     {formatCurrency(inv.grand_total_paisa, inv.currency)}
                   </td>
                   <td className="px-4 py-3">

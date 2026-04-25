@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { useAuthStore } from "./stores";
+import { useAuthStore, useUIStore } from "./stores";
 import { SplashScreen } from "./components/shared";
 import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/auth/LoginPage";
@@ -16,10 +16,36 @@ import { RoutesPage } from "./pages/routes/RoutesPage";
 import { ProfitTargetsPage } from "./pages/profit/ProfitTargetsPage";
 import { SettingsPage } from "./pages/settings/SettingsPage";
 import { ReportsPage } from "./pages/reports/ReportsPage";
+import { AccountingPage } from "./pages/reports/AccountingPage";
 
 export default function App() {
   const { isLoggedIn, checkExistingAccount } = useAuthStore();
   const [isInitializing, setIsInitializing] = useState(true);
+
+  const { theme } = useUIStore();
+
+  useEffect(() => {
+    const applyTheme = () => {
+      const root = window.document.documentElement;
+      root.classList.remove("light", "dark");
+
+      if (theme === "system") {
+        const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        root.classList.add(systemTheme);
+      } else {
+        root.classList.add(theme);
+      }
+    };
+
+    applyTheme();
+
+    if (theme === "system") {
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const handleChange = () => applyTheme();
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+  }, [theme]);
 
   useEffect(() => {
     // Simulate a professional boot sequence to ensure the splash screen is visible
@@ -65,6 +91,7 @@ export default function App() {
             {/* Business Analysis */}
             <Route path="/profit-targets" element={<ProfitTargetsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/accounting" element={<AccountingPage />} />
             
             {/* Suppliers */}
             <Route path="/suppliers" element={<PartiesPage partyType="Supplier" />} />

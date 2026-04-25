@@ -52,7 +52,6 @@ export interface Product {
   current_stock: number;
   reorder_level: number;
   buying_price_paisa: number;
-  selling_price_paisa: number;
   status: string;
   created_at: string;
   updated_at: string;
@@ -234,6 +233,16 @@ export interface MonthlyRevenue {
   month: string;
   revenue_paisa: number;
   invoice_count: number;
+}
+
+export interface FinancialStatement {
+  total_sales_revenue_paisa: number;
+  total_purchases_paisa: number;
+  closing_stock_paisa: number;
+  cost_of_goods_sold_paisa: number;
+  gross_profit_paisa: number;
+  total_receivables_paisa: number;
+  total_assets_paisa: number;
 }
 
 export interface CustomCostItem {

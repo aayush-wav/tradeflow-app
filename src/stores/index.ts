@@ -305,11 +305,18 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
 
 interface UIStore {
   sidebarCollapsed: boolean;
+  theme: "system" | "light" | "dark";
   toggleSidebar: () => void;
+  setTheme: (theme: "system" | "light" | "dark") => void;
 }
 
 export const useUIStore = create<UIStore>((set) => ({
   sidebarCollapsed: false,
+  theme: (localStorage.getItem("theme") as any) || "system",
   toggleSidebar: () =>
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+  setTheme: (theme) => {
+    localStorage.setItem("theme", theme);
+    set({ theme });
+  },
 }));

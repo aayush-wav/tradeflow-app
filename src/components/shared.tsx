@@ -24,10 +24,10 @@ export function ConfirmDialog({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">{title}</h3>
-        <p className="text-sm text-slate-600 mb-6">{message}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-md w-full mx-4 p-6 border border-slate-200 dark:border-slate-800">
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">{title}</h3>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">{message}</p>
         <div className="flex justify-end gap-3">
           <button onClick={onCancel} className="btn-secondary">
             {cancelLabel}
@@ -77,17 +77,17 @@ export function PageLoader() {
 
 export function SplashScreen() {
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white">
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white dark:bg-slate-950 transition-colors">
       <div className="flex flex-col items-center animate-in fade-in zoom-in duration-500">
         <div className="w-24 h-24 bg-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-2xl shadow-blue-200">
           <svg className="w-14 h-14 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
           </svg>
         </div>
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">TradeFlow Nepal</h1>
-        <p className="text-slate-500 mt-2 font-medium">Initializing Business Environment...</p>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">TradeFlow Nepal</h1>
+        <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Initializing Business Environment...</p>
         <div className="mt-12">
-            <div className="w-48 h-1 bg-slate-100 rounded-full overflow-hidden">
+            <div className="w-48 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div className="h-full bg-blue-600 animate-progress"></div>
             </div>
         </div>
@@ -111,8 +111,8 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      {icon && <div className="text-slate-300 mb-4">{icon}</div>}
-      <h3 className="text-lg font-medium text-slate-700 mb-1">{title}</h3>
+      {icon && <div className="text-slate-300 dark:text-slate-700 mb-4">{icon}</div>}
+      <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-1">{title}</h3>
       {description && (
         <p className="text-sm text-slate-500 max-w-sm mb-4">{description}</p>
       )}
@@ -133,7 +133,7 @@ export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
       <div>
         <h1 className="page-title">{title}</h1>
         {subtitle && (
-          <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{subtitle}</p>
         )}
       </div>
       {actions && <div className="flex items-center gap-3">{actions}</div>}
@@ -182,10 +182,10 @@ export class ErrorBoundary extends React.Component<
               />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-slate-900 mb-2">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
             Something went wrong
           </h2>
-          <p className="text-sm text-slate-600 mb-4">
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
             {this.state.error?.message}
           </p>
           <button
@@ -224,12 +224,12 @@ export function Modal({
     xl: "max-w-4xl",
   };
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/40 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/50 backdrop-blur-sm overflow-y-auto">
       <div
-        className={`bg-white rounded-xl shadow-xl ${sizeClasses[size]} w-full mx-4 mb-8`}
+        className={`bg-white dark:bg-slate-900 rounded-xl shadow-2xl ${sizeClasses[size]} w-full mx-4 mb-8 border border-slate-200 dark:border-slate-800`}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{title}</h3>
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600"
@@ -261,14 +261,14 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status }: StatusBadgeProps) {
   const colors: Record<string, string> = {
-    Draft: "bg-slate-100 text-slate-700",
-    Sent: "bg-blue-100 text-blue-700",
-    Paid: "bg-green-100 text-green-700",
-    "Partially Paid": "bg-amber-100 text-amber-700",
-    Overdue: "bg-red-100 text-red-700",
-    Cancelled: "bg-slate-100 text-slate-500",
-    Active: "bg-green-100 text-green-700",
-    Inactive: "bg-slate-100 text-slate-500",
+    Draft: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    Sent: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    Paid: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+    "Partially Paid": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+    Overdue: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+    Cancelled: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
+    Active: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+    Inactive: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
   };
   return (
     <span

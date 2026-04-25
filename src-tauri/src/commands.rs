@@ -181,13 +181,13 @@ pub fn create_product(state: State<DbState>, product: Product) -> ApiResponse<St
     let r = conn.execute(
         "INSERT INTO products (id,product_id,name,category,hs_code,unit_of_measure,
          country_of_origin,description,current_stock,reorder_level,buying_price_paisa,
-         selling_price_paisa,status,created_at,updated_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
+         status,created_at,updated_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
         params![
             id, product_id, product.name, product.category, product.hs_code,
             product.unit_of_measure, product.country_of_origin, product.description,
             product.current_stock, product.reorder_level, product.buying_price_paisa,
-            product.selling_price_paisa, product.status, now, now
+            product.status, now, now
         ],
     );
     match r { Ok(_) => ApiResponse::ok(id), Err(e) => ApiResponse::err(&e.to_string()) }
@@ -200,12 +200,11 @@ pub fn update_product(state: State<DbState>, product: Product) -> ApiResponse<St
     let r = conn.execute(
         "UPDATE products SET name=?1,category=?2,hs_code=?3,unit_of_measure=?4,
          country_of_origin=?5,description=?6,reorder_level=?7,buying_price_paisa=?8,
-         selling_price_paisa=?9,status=?10,updated_at=?11 WHERE id=?12",
+         status=?9,updated_at=?10 WHERE id=?11",
         params![
             product.name, product.category, product.hs_code, product.unit_of_measure,
             product.country_of_origin, product.description, product.reorder_level,
-            product.buying_price_paisa, product.selling_price_paisa, product.status,
-            now, product.id
+            product.buying_price_paisa, product.status, now, product.id
         ],
     );
     match r { Ok(_) => ApiResponse::ok(product.id), Err(e) => ApiResponse::err(&e.to_string()) }
@@ -223,8 +222,8 @@ pub fn get_products(state: State<DbState>) -> ApiResponse<Vec<Product>> {
         id: r.get(0)?, product_id: r.get(1)?, name: r.get(2)?, category: r.get(3)?,
         hs_code: r.get(4)?, unit_of_measure: r.get(5)?, country_of_origin: r.get(6)?,
         description: r.get(7)?, current_stock: r.get(8)?, reorder_level: r.get(9)?,
-        buying_price_paisa: r.get(10)?, selling_price_paisa: r.get(11)?,
-        status: r.get(12)?, created_at: r.get(13)?, updated_at: r.get(14)?,
+        buying_price_paisa: r.get(10)?,
+        status: r.get(11)?, created_at: r.get(12)?, updated_at: r.get(13)?,
     })).unwrap().filter_map(|r| r.ok()).collect();
     ApiResponse::ok(items)
 }
@@ -538,77 +537,102 @@ pub fn save_shipment_record(state: State<DbState>, record: ShipmentRecord) -> Ap
     let existing: bool = conn.query_row(
         "SELECT COUNT(*) FROM shipment_records WHERE id=?1", params![id], |r| r.get::<_,i64>(0)
     ).unwrap_or(0) > 0;
-    let r = if existing {
-        conn.execute(
-            "UPDATE shipment_records SET name=?1,product_id=?2,quantity=?3,unit_buying_price_paisa=?4,
-             total_product_cost_paisa=?5,transport_mode=?6,origin=?7,destination=?8,
-             transport_cost_paisa=?9,loading_unloading_paisa=?10,packaging_cost_paisa=?11,
-             fumigation_cost_paisa=?12,customs_agent_fee_paisa=?13,export_declaration_fee_paisa=?14,
-             customs_exam_fee_paisa=?15,certificate_origin_fee_paisa=?16,phytosanitary_fee_paisa=?17,
-             export_permit_fee_paisa=?18,doc_preparation_paisa=?19,terminal_handling_paisa=?20,
-             customs_broker_transit_paisa=?21,transit_charges_paisa=?22,storage_demurrage_paisa=?23,
-             scanner_charges_paisa=?24,freight_mode=?25,freight_cost_original=?26,
-             freight_currency=?27,freight_exchange_rate=?28,freight_cost_npr_paisa=?29,
-             freight_insurance_paisa=?30,bl_awb_charges_paisa=?31,import_duty_percent=?32,
-             vat_gst_percent=?33,customs_clearance_dest_paisa=?34,last_mile_delivery_paisa=?35,
-             other_destination_paisa=?36,lc_charges_paisa=?37,bank_commission_paisa=?38,
-             wire_transfer_paisa=?39,hedging_cost_paisa=?40,contingency_percent=?41,
-             total_cost_paisa=?42,custom_costs_json=?43,incoterm=?44,invoice_id=?45,
-             updated_at=?46 WHERE id=?47",
-            params![
-                record.name, record.product_id, record.quantity, record.unit_buying_price_paisa,
-                record.total_product_cost_paisa, record.transport_mode, record.origin, record.destination,
-                record.transport_cost_paisa, record.loading_unloading_paisa, record.packaging_cost_paisa,
-                record.fumigation_cost_paisa, record.customs_agent_fee_paisa, record.export_declaration_fee_paisa,
-                record.customs_exam_fee_paisa, record.certificate_origin_fee_paisa, record.phytosanitary_fee_paisa,
-                record.export_permit_fee_paisa, record.doc_preparation_paisa, record.terminal_handling_paisa,
-                record.customs_broker_transit_paisa, record.transit_charges_paisa, record.storage_demurrage_paisa,
-                record.scanner_charges_paisa, record.freight_mode, record.freight_cost_original,
-                record.freight_currency, record.freight_exchange_rate, record.freight_cost_npr_paisa,
-                record.freight_insurance_paisa, record.bl_awb_charges_paisa, record.import_duty_percent,
-                record.vat_gst_percent, record.customs_clearance_dest_paisa, record.last_mile_delivery_paisa,
-                record.other_destination_paisa, record.lc_charges_paisa, record.bank_commission_paisa,
-                record.wire_transfer_paisa, record.hedging_cost_paisa, record.contingency_percent,
-                record.total_cost_paisa, record.custom_costs_json, record.incoterm, record.invoice_id,
-                now, id
-            ],
-        )
-    } else {
-        conn.execute(
-            "INSERT INTO shipment_records (id,name,product_id,quantity,unit_buying_price_paisa,
-             total_product_cost_paisa,transport_mode,origin,destination,transport_cost_paisa,
-             loading_unloading_paisa,packaging_cost_paisa,fumigation_cost_paisa,customs_agent_fee_paisa,
-             export_declaration_fee_paisa,customs_exam_fee_paisa,certificate_origin_fee_paisa,
-             phytosanitary_fee_paisa,export_permit_fee_paisa,doc_preparation_paisa,terminal_handling_paisa,
-             customs_broker_transit_paisa,transit_charges_paisa,storage_demurrage_paisa,scanner_charges_paisa,
-             freight_mode,freight_cost_original,freight_currency,freight_exchange_rate,freight_cost_npr_paisa,
-             freight_insurance_paisa,bl_awb_charges_paisa,import_duty_percent,vat_gst_percent,
-             customs_clearance_dest_paisa,last_mile_delivery_paisa,other_destination_paisa,lc_charges_paisa,
-             bank_commission_paisa,wire_transfer_paisa,hedging_cost_paisa,contingency_percent,
-             total_cost_paisa,custom_costs_json,incoterm,invoice_id,created_at,updated_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,
-             ?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36,?37,?38,?39,?40,
-             ?41,?42,?43,?44,?45,?46,?47,?48)",
-            params![
-                id, record.name, record.product_id, record.quantity, record.unit_buying_price_paisa,
-                record.total_product_cost_paisa, record.transport_mode, record.origin, record.destination,
-                record.transport_cost_paisa, record.loading_unloading_paisa, record.packaging_cost_paisa,
-                record.fumigation_cost_paisa, record.customs_agent_fee_paisa, record.export_declaration_fee_paisa,
-                record.customs_exam_fee_paisa, record.certificate_origin_fee_paisa, record.phytosanitary_fee_paisa,
-                record.export_permit_fee_paisa, record.doc_preparation_paisa, record.terminal_handling_paisa,
-                record.customs_broker_transit_paisa, record.transit_charges_paisa, record.storage_demurrage_paisa,
-                record.scanner_charges_paisa, record.freight_mode, record.freight_cost_original,
-                record.freight_currency, record.freight_exchange_rate, record.freight_cost_npr_paisa,
-                record.freight_insurance_paisa, record.bl_awb_charges_paisa, record.import_duty_percent,
-                record.vat_gst_percent, record.customs_clearance_dest_paisa, record.last_mile_delivery_paisa,
-                record.other_destination_paisa, record.lc_charges_paisa, record.bank_commission_paisa,
-                record.wire_transfer_paisa, record.hedging_cost_paisa, record.contingency_percent,
-                record.total_cost_paisa, record.custom_costs_json, record.incoterm, record.invoice_id,
-                now, now
-            ],
-        )
-    };
-    match r { Ok(_) => ApiResponse::ok(id), Err(e) => ApiResponse::err(&e.to_string()) }
+        let res = if existing {
+            conn.execute(
+                "UPDATE shipment_records SET name=?1,product_id=?2,quantity=?3,unit_buying_price_paisa=?4,
+                 total_product_cost_paisa=?5,transport_mode=?6,origin=?7,destination=?8,
+                 transport_cost_paisa=?9,loading_unloading_paisa=?10,packaging_cost_paisa=?11,
+                 fumigation_cost_paisa=?12,customs_agent_fee_paisa=?13,export_declaration_fee_paisa=?14,
+                 customs_exam_fee_paisa=?15,certificate_origin_fee_paisa=?16,phytosanitary_fee_paisa=?17,
+                 export_permit_fee_paisa=?18,doc_preparation_paisa=?19,terminal_handling_paisa=?20,
+                 customs_broker_transit_paisa=?21,transit_charges_paisa=?22,storage_demurrage_paisa=?23,
+                 scanner_charges_paisa=?24,freight_mode=?25,freight_cost_original=?26,
+                 freight_currency=?27,freight_exchange_rate=?28,freight_cost_npr_paisa=?29,
+                 freight_insurance_paisa=?30,bl_awb_charges_paisa=?31,import_duty_percent=?32,
+                 vat_gst_percent=?33,customs_clearance_dest_paisa=?34,last_mile_delivery_paisa=?35,
+                 other_destination_paisa=?36,lc_charges_paisa=?37,bank_commission_paisa=?38,
+                 wire_transfer_paisa=?39,hedging_cost_paisa=?40,contingency_percent=?41,
+                 total_cost_paisa=?42,custom_costs_json=?43,incoterm=?44,invoice_id=?45,
+                 updated_at=?46 WHERE id=?47",
+                params![
+                    record.name, record.product_id, record.quantity, record.unit_buying_price_paisa,
+                    record.total_product_cost_paisa, record.transport_mode, record.origin, record.destination,
+                    record.transport_cost_paisa, record.loading_unloading_paisa, record.packaging_cost_paisa,
+                    record.fumigation_cost_paisa, record.customs_agent_fee_paisa, record.export_declaration_fee_paisa,
+                    record.customs_exam_fee_paisa, record.certificate_origin_fee_paisa, record.phytosanitary_fee_paisa,
+                    record.export_permit_fee_paisa, record.doc_preparation_paisa, record.terminal_handling_paisa,
+                    record.customs_broker_transit_paisa, record.transit_charges_paisa, record.storage_demurrage_paisa,
+                    record.scanner_charges_paisa, record.freight_mode, record.freight_cost_original,
+                    record.freight_currency, record.freight_exchange_rate, record.freight_cost_npr_paisa,
+                    record.freight_insurance_paisa, record.bl_awb_charges_paisa, record.import_duty_percent,
+                    record.vat_gst_percent, record.customs_clearance_dest_paisa, record.last_mile_delivery_paisa,
+                    record.other_destination_paisa, record.lc_charges_paisa, record.bank_commission_paisa,
+                    record.wire_transfer_paisa, record.hedging_cost_paisa, record.contingency_percent,
+                    record.total_cost_paisa, record.custom_costs_json, record.incoterm, record.invoice_id,
+                    now, id
+                ],
+            )
+        } else {
+            let insert_res = conn.execute(
+                "INSERT INTO shipment_records (id,name,product_id,quantity,unit_buying_price_paisa,
+                 total_product_cost_paisa,transport_mode,origin,destination,transport_cost_paisa,
+                 loading_unloading_paisa,packaging_cost_paisa,fumigation_cost_paisa,customs_agent_fee_paisa,
+                 export_declaration_fee_paisa,customs_exam_fee_paisa,certificate_origin_fee_paisa,
+                 phytosanitary_fee_paisa,export_permit_fee_paisa,doc_preparation_paisa,terminal_handling_paisa,
+                 customs_broker_transit_paisa,transit_charges_paisa,storage_demurrage_paisa,scanner_charges_paisa,
+                 freight_mode,freight_cost_original,freight_currency,freight_exchange_rate,freight_cost_npr_paisa,
+                 freight_insurance_paisa,bl_awb_charges_paisa,import_duty_percent,vat_gst_percent,
+                 customs_clearance_dest_paisa,last_mile_delivery_paisa,other_destination_paisa,lc_charges_paisa,
+                 bank_commission_paisa,wire_transfer_paisa,hedging_cost_paisa,contingency_percent,
+                 total_cost_paisa,custom_costs_json,incoterm,invoice_id,created_at,updated_at)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,
+                 ?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36,?37,?38,?39,?40,
+                 ?41,?42,?43,?44,?45,?46,?47,?48)",
+                params![
+                    id, record.name, record.product_id, record.quantity, record.unit_buying_price_paisa,
+                    record.total_product_cost_paisa, record.transport_mode, record.origin, record.destination,
+                    record.transport_cost_paisa, record.loading_unloading_paisa, record.packaging_cost_paisa,
+                    record.fumigation_cost_paisa, record.customs_agent_fee_paisa, record.export_declaration_fee_paisa,
+                    record.customs_exam_fee_paisa, record.certificate_origin_fee_paisa, record.phytosanitary_fee_paisa,
+                    record.export_permit_fee_paisa, record.doc_preparation_paisa, record.terminal_handling_paisa,
+                    record.customs_broker_transit_paisa, record.transit_charges_paisa, record.storage_demurrage_paisa,
+                    record.scanner_charges_paisa, record.freight_mode, record.freight_cost_original,
+                    record.freight_currency, record.freight_exchange_rate, record.freight_cost_npr_paisa,
+                    record.freight_insurance_paisa, record.bl_awb_charges_paisa, record.import_duty_percent,
+                    record.vat_gst_percent, record.customs_clearance_dest_paisa, record.last_mile_delivery_paisa,
+                    record.other_destination_paisa, record.lc_charges_paisa, record.bank_commission_paisa,
+                    record.wire_transfer_paisa, record.hedging_cost_paisa, record.contingency_percent,
+                    record.total_cost_paisa, record.custom_costs_json, record.incoterm, record.invoice_id,
+                    now, now
+                ],
+            );
+
+            // --- STOCK AUTOMATION: Trigger only on successful first save ---
+            if insert_res.is_ok() {
+                if let Some(pid) = record.product_id {
+                    if !pid.is_empty() && record.quantity > 0.0 {
+                        let tx_id = Uuid::new_v4().to_string();
+                        let ref_val = format!("Inward: {}", record.name);
+                        
+                        // 1. Create Inward Ledger Entry
+                        let _ = conn.execute(
+                            "INSERT INTO inventory_transactions (id,product_id,transaction_type,quantity_in,
+                            quantity_out,reference,notes,transaction_date,created_at)
+                            VALUES (?1,?2,'Shipment Inward',?3,0,?4,'Inventory added from costing',?5,?6)",
+                            params![tx_id, pid, record.quantity as i64, ref_val, now, now],
+                        );
+
+                        // 2. Increase Physical Stock
+                        let _ = conn.execute(
+                            "UPDATE products SET current_stock = current_stock + ?1, updated_at=?2 WHERE id=?3",
+                            params![record.quantity as i64, now, pid],
+                        );
+                    }
+                }
+            }
+            insert_res
+        };
+    match res { Ok(_) => ApiResponse::ok(id), Err(e) => ApiResponse::err(&e.to_string()) }
 }
 
 #[tauri::command]
@@ -775,11 +799,74 @@ pub struct DashboardStats {
     pub low_stock_count: i64,
 }
 
+#[derive(Serialize)]
+pub struct FinancialStatement {
+    pub total_sales_revenue_paisa: i64,
+    pub total_purchases_paisa: i64,
+    pub closing_stock_paisa: i64,
+    pub cost_of_goods_sold_paisa: i64,
+    pub gross_profit_paisa: i64,
+    pub total_receivables_paisa: i64,
+    pub total_assets_paisa: i64,
+}
+
+#[tauri::command]
+pub fn get_financial_statement(state: State<DbState>) -> ApiResponse<FinancialStatement> {
+    let conn = state.0.lock().unwrap();
+
+    let total_sales: i64 = conn.query_row(
+        "SELECT COALESCE(SUM(grand_total_paisa), 0) FROM invoices",
+        [],
+        |r| r.get(0)
+    ).unwrap_or(0);
+
+    let total_payments_received: i64 = conn.query_row(
+        "SELECT COALESCE(SUM(amount_paisa), 0) FROM payments",
+        [],
+        |r| r.get(0)
+    ).unwrap_or(0);
+
+    let total_receivables = total_sales - total_payments_received;
+
+    let total_purchases: i64 = conn.query_row(
+        "SELECT COALESCE(SUM(total_cost_paisa), 0) FROM shipment_records",
+        [],
+        |r| r.get(0)
+    ).unwrap_or(0);
+
+    let closing_stock: i64 = conn.query_row(
+        "SELECT COALESCE(SUM(current_stock * buying_price_paisa), 0) FROM products WHERE status='Active'",
+        [],
+        |r| r.get(0)
+    ).unwrap_or(0);
+
+    // Basic accounting logic: COGS = Opening(0) + Purchases - Closing
+    // Ensure COGS doesn't go negative if closing stock > purchases
+    let cogs = (total_purchases - closing_stock).max(0);
+    
+    let gross_profit = total_sales - cogs;
+    let bank_balance_proxy = 0; // We lack a true cash ledger, but total_assets needs filling
+    let total_assets = closing_stock + total_receivables + bank_balance_proxy;
+
+    ApiResponse::ok(FinancialStatement {
+        total_sales_revenue_paisa: total_sales,
+        total_purchases_paisa: total_purchases,
+        closing_stock_paisa: closing_stock,
+        cost_of_goods_sold_paisa: cogs,
+        gross_profit_paisa: gross_profit,
+        total_receivables_paisa: total_receivables,
+        total_assets_paisa: total_assets,
+    })
+}
+
 #[tauri::command]
 pub fn get_dashboard_stats(state: State<DbState>) -> ApiResponse<DashboardStats> {
     let conn = state.0.lock().unwrap();
     let total_revenue: i64 = conn.query_row(
         "SELECT COALESCE(SUM(grand_total_paisa),0) FROM invoices WHERE status='Paid'",
+        [], |r| r.get(0)).unwrap_or(0);
+    let total_expenses: i64 = conn.query_row(
+        "SELECT COALESCE(SUM(total_cost_paisa),0) FROM shipment_records",
         [], |r| r.get(0)).unwrap_or(0);
     let invoices_paid: i64 = conn.query_row(
         "SELECT COUNT(*) FROM invoices WHERE status='Paid'", [], |r| r.get(0)).unwrap_or(0);
@@ -792,7 +879,7 @@ pub fn get_dashboard_stats(state: State<DbState>) -> ApiResponse<DashboardStats>
         [], |r| r.get(0)).unwrap_or(0);
     ApiResponse::ok(DashboardStats {
         total_revenue_paisa: total_revenue,
-        total_expenses_paisa: 0,
+        total_expenses_paisa: total_expenses,
         invoices_paid, invoices_unpaid, invoices_overdue, low_stock_count,
     })
 }

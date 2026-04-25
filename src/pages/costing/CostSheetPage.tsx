@@ -14,7 +14,7 @@ import {
   CURRENCIES,
   INCOTERMS,
 } from "../../constants";
-import { Save, Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Save, Plus, Trash2, ChevronDown, ChevronUp, Printer } from "lucide-react";
 import type { ShipmentRecord, CustomCostItem } from "../../types";
 
 function CollapsibleSection({
@@ -259,20 +259,31 @@ export function CostSheetPage() {
         <PageHeader
           title="Export Cost Calculator"
           actions={
-            <button
-              onClick={handleSave}
-              disabled={saving || !name}
-              className="btn-primary flex items-center gap-2"
-            >
-              <Save size={16} /> {saving ? "Saving..." : "Save Cost Sheet"}
-            </button>
+            <>
+              <button
+                onClick={() => window.print()}
+                className="btn-secondary flex items-center gap-2 print:hidden"
+              >
+                <Printer size={16} /> Print Bill
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || !name}
+                className="btn-primary flex items-center gap-2 print:hidden"
+              >
+                <Save size={16} /> {saving ? "Saving..." : "Save Record"}
+              </button>
+            </>
           }
         />
 
-        <div className="card mb-4">
-          <label className="label-text">Cost Sheet Name</label>
+        <div className="card mb-4 print:shadow-none print:border-none">
+          <label className="label-text print:hidden">Cost Sheet Name</label>
+          <h1 className="text-2xl font-bold hidden print:block text-slate-900 mb-6 border-b pb-4">
+             SHIPMENT BILL / COSTING SHEET: {name}
+          </h1>
           <input
-            className="input-field max-w-md"
+            className="input-field max-w-md print:hidden"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g., Tea Export to Singapore - March 2025"

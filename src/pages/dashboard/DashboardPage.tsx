@@ -81,7 +81,6 @@ export function DashboardPage() {
         title="Dashboard"
         subtitle={`Fiscal Year ${fiscalYear}`}
       />
-
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
           icon={<DollarSign size={20} />}
@@ -90,17 +89,18 @@ export function DashboardPage() {
           color="blue"
         />
         <StatCard
+          icon={<TrendingUp size={20} />}
+          label="Estimated Profit"
+          value={formatCurrency((stats?.total_revenue_paisa || 0) - (stats?.total_expenses_paisa || 0))}
+          sub={`Cost: ${formatCurrency(stats?.total_expenses_paisa || 0)}`}
+          color="green"
+        />
+        <StatCard
           icon={<FileText size={20} />}
           label="Paid Invoices"
           value={String(stats?.invoices_paid || 0)}
           sub={`${stats?.invoices_unpaid || 0} unpaid`}
-          color="green"
-        />
-        <StatCard
-          icon={<TrendingDown size={20} />}
-          label="Overdue"
-          value={String(stats?.invoices_overdue || 0)}
-          color="red"
+          color="blue"
         />
         <StatCard
           icon={<AlertTriangle size={20} />}
@@ -128,13 +128,17 @@ export function DashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis
                   dataKey="month"
-                  tick={{ fontSize: 12, fill: "#64748b" }}
+                  tick={{ fontSize: 12, fill: "currentColor" }}
+                  className="text-slate-500 dark:text-slate-400"
                 />
                 <YAxis
-                  tick={{ fontSize: 12, fill: "#64748b" }}
+                  tick={{ fontSize: 12, fill: "currentColor" }}
+                  className="text-slate-500 dark:text-slate-400"
                   tickFormatter={(v) => `${(v / 100).toLocaleString()}`}
                 />
                 <Tooltip
+                  contentStyle={{ backgroundColor: 'var(--tw-slate-900)', border: 'none', borderRadius: '8px' }}
+                  itemStyle={{ color: '#fff' }}
                   formatter={(value: number) => [
                     formatCurrency(value),
                     "Revenue",
@@ -205,19 +209,19 @@ export function DashboardPage() {
               {recentInvoices.map((inv) => (
                 <div
                   key={inv.id}
-                  className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-50"
+                  className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-50 dark:bg-slate-900/50"
                 >
                   <div>
-                    <p className="text-sm font-medium text-slate-900">
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">
                       {inv.invoice_number}
                     </p>
-                    <p className="text-xs text-slate-500">{inv.party_name}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{inv.party_name}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium">
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">
                       {formatCurrency(inv.grand_total_paisa, inv.currency)}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       {formatADDate(inv.invoice_date)}
                     </p>
                   </div>
@@ -246,19 +250,19 @@ export function DashboardPage() {
               {lowStockProducts.slice(0, 5).map((p) => (
                 <div
                   key={p.id}
-                  className="flex items-center justify-between py-2 px-3 rounded-lg bg-red-50"
+                  className="flex items-center justify-between py-2 px-3 rounded-lg bg-red-50 dark:bg-red-900/10"
                 >
                   <div>
-                    <p className="text-sm font-medium text-slate-900">
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">
                       {p.name}
                     </p>
-                    <p className="text-xs text-slate-500">{p.product_id}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{p.product_id}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-red-600">
+                    <p className="text-sm font-bold text-red-600 dark:text-red-400">
                       {p.current_stock} {p.unit_of_measure}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       Reorder: {p.reorder_level}
                     </p>
                   </div>
@@ -286,16 +290,16 @@ function StatCard({
   color: string;
 }) {
   const bgColors: Record<string, string> = {
-    blue: "bg-blue-50",
-    green: "bg-green-50",
-    red: "bg-red-50",
-    amber: "bg-amber-50",
+    blue: "bg-blue-50 dark:bg-blue-900/20",
+    green: "bg-green-50 dark:bg-green-900/20",
+    red: "bg-red-50 dark:bg-red-900/20",
+    amber: "bg-amber-50 dark:bg-amber-900/20",
   };
   const iconColors: Record<string, string> = {
-    blue: "text-blue-600",
-    green: "text-green-600",
-    red: "text-red-600",
-    amber: "text-amber-600",
+    blue: "text-blue-600 dark:text-blue-400",
+    green: "text-green-600 dark:text-green-400",
+    red: "text-red-600 dark:text-red-400",
+    amber: "text-amber-600 dark:text-amber-400",
   };
   return (
     <div className="card flex items-start gap-4">
@@ -305,11 +309,11 @@ function StatCard({
         {icon}
       </div>
       <div>
-        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
           {label}
         </p>
-        <p className="text-xl font-bold text-slate-900 mt-0.5">{value}</p>
-        {sub && <p className="text-xs text-slate-500 mt-0.5">{sub}</p>}
+        <p className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">{value}</p>
+        {sub && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{sub}</p>}
       </div>
     </div>
   );

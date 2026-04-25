@@ -40,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Routes", path: "/routes", icon: <MapPin size={20} /> },
   { label: "Profit Targets", path: "/profit-targets", icon: <Target size={20} /> },
   { label: "Reports", path: "/reports", icon: <BarChart3 size={20} /> },
+  { label: "Accounting", path: "/accounting", icon: <FileText size={20} /> },
   { label: "Settings", path: "/settings", icon: <Settings size={20} /> },
 ];
 

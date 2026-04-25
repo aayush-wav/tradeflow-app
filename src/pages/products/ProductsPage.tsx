@@ -16,7 +16,7 @@ import {
   UNITS_OF_MEASURE,
   PRODUCT_STATUSES,
 } from "../../constants";
-import { Plus, Edit2, Trash2, Package } from "lucide-react";
+import { Plus, Edit2, Trash2, Package, Calculator } from "lucide-react";
 import type { Product } from "../../types";
 
 const EMPTY_PRODUCT: Partial<Product> = {
@@ -31,7 +31,6 @@ const EMPTY_PRODUCT: Partial<Product> = {
   current_stock: 0,
   reorder_level: 0,
   buying_price_paisa: 0,
-  selling_price_paisa: 0,
   status: "Active",
 };
 
@@ -44,7 +43,6 @@ export function ProductsPage() {
   const [editing, setEditing] = useState<Partial<Product> | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [buyingPrice, setBuyingPrice] = useState("");
-  const [sellingPrice, setSellingPrice] = useState("");
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
@@ -55,14 +53,12 @@ export function ProductsPage() {
   const openCreate = () => {
     setEditing({ ...EMPTY_PRODUCT });
     setBuyingPrice("");
-    setSellingPrice("");
     setShowModal(true);
   };
 
   const openEdit = (p: Product) => {
     setEditing({ ...p });
     setBuyingPrice(String(paisaToRupees(p.buying_price_paisa)));
-    setSellingPrice(String(paisaToRupees(p.selling_price_paisa)));
     setShowModal(true);
   };
 
@@ -74,7 +70,6 @@ export function ProductsPage() {
         ...EMPTY_PRODUCT,
         ...editing,
         buying_price_paisa: rupeesToPaisa(parseFloat(buyingPrice) || 0),
-        selling_price_paisa: rupeesToPaisa(parseFloat(sellingPrice) || 0),
       } as Product;
       if (editing.id) {
         await editProduct(product);
@@ -176,50 +171,46 @@ export function ProductsPage() {
                   <th className="px-4 py-3">HS Code</th>
                   <th className="px-4 py-3 text-right">Stock</th>
                   <th className="px-4 py-3 text-right">Buying Price</th>
-                  <th className="px-4 py-3 text-right">Selling Price</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {filtered.map((p) => (
                   <tr
                     key={p.id}
-                    className={`hover:bg-slate-50 ${
+                    className={`hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors ${
                       p.current_stock <= p.reorder_level && p.status === "Active"
-                        ? "bg-red-50/50"
+                        ? "bg-red-50/50 dark:bg-red-900/10"
                         : ""
                     }`}
                   >
-                    <td className="px-4 py-3 text-sm font-mono text-slate-600">
+                    <td className="px-4 py-3 text-sm font-mono text-slate-600 dark:text-slate-400">
                       {p.product_id}
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                    <td className="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">
                       {p.name}
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-600">{p.category}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-slate-600">
+                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{p.category}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-slate-600 dark:text-slate-400">
                       {p.hs_code}
                     </td>
                     <td className="px-4 py-3 text-sm text-right">
                       <span
                         className={
                           p.current_stock <= p.reorder_level && p.status === "Active"
-                            ? "text-red-600 font-semibold"
-                            : "text-slate-900"
+                            ? "text-red-600 dark:text-red-400 font-semibold"
+                            : "text-slate-900 dark:text-slate-300"
                         }
                       >
                         {p.current_stock}
                       </span>
-                      <span className="text-slate-400 ml-1 text-xs">
+                      <span className="text-slate-400 dark:text-slate-600 ml-1 text-xs">
                         {p.unit_of_measure}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-slate-900">
+                    <td className="px-4 py-3 text-sm text-right text-slate-900 dark:text-white">
                       {formatCurrency(p.buying_price_paisa)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right text-slate-900">
-                      {formatCurrency(p.selling_price_paisa)}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={p.status} />
@@ -228,15 +219,24 @@ export function ProductsPage() {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => openEdit(p)}
+                          title="Edit Product"
                           className="p-1.5 text-slate-400 hover:text-blue-600 rounded"
                         >
                           <Edit2 size={15} />
                         </button>
                         <button
                           onClick={() => setDeleteTarget(p)}
+                          title="Delete Product"
                           className="p-1.5 text-slate-400 hover:text-red-600 rounded"
                         >
                           <Trash2 size={15} />
+                        </button>
+                        <button
+                           className="p-1.5 text-slate-400 hover:text-green-600 rounded"
+                           title="View Per Unit Detail"
+                           onClick={() => alert(`Landed Cost Calculation:\nBase: ${formatCurrency(p.buying_price_paisa)}\n(View Cost Sheet for full breakdown)`)}
+                        >
+                           <Calculator size={15} />
                         </button>
                       </div>
                     </td>
@@ -310,24 +310,13 @@ export function ProductsPage() {
                 }
               />
             </div>
-            <div>
+            <div className="col-span-2">
               <label className="label-text">Buying Price (NPR)</label>
               <input
                 type="number"
                 className="input-field"
                 value={buyingPrice}
                 onChange={(e) => setBuyingPrice(e.target.value)}
-                placeholder="0.00"
-                step="0.01"
-              />
-            </div>
-            <div>
-              <label className="label-text">Selling Price (NPR)</label>
-              <input
-                type="number"
-                className="input-field"
-                value={sellingPrice}
-                onChange={(e) => setSellingPrice(e.target.value)}
                 placeholder="0.00"
                 step="0.01"
               />

@@ -55,7 +55,6 @@ pub struct Product {
     pub current_stock: i64,
     pub reorder_level: i64,
     pub buying_price_paisa: i64,
-    pub selling_price_paisa: i64,
     pub status: String,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
@@ -285,7 +284,6 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
             current_stock INTEGER NOT NULL DEFAULT 0,
             reorder_level INTEGER NOT NULL DEFAULT 0,
             buying_price_paisa INTEGER NOT NULL DEFAULT 0,
-            selling_price_paisa INTEGER NOT NULL DEFAULT 0,
             status TEXT NOT NULL DEFAULT 'Active',
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))

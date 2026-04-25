@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { useProfileStore } from "../../stores";
+import { useProfileStore, useUIStore } from "../../stores";
 import { PageHeader, PageLoader, Toast } from "../../components/shared";
 import { CURRENCIES, PROVINCES_NEPAL, FISCAL_YEAR_START_MONTH } from "../../constants";
-import { Save, Building2, Landmark, Globe, Phone, Mail, MapPin, Upload, FileText } from "lucide-react";
+import { Save, Building2, Landmark, Globe, Phone, Mail, MapPin, Upload, FileText, Moon, Sun, Monitor } from "lucide-react";
 import type { CompanyProfile } from "../../types";
 
 export function SettingsPage() {
   const { profile, isLoading, fetchProfile, saveProfile } = useProfileStore();
+  const { theme, setTheme } = useUIStore();
   const [editing, setEditing] = useState<Partial<CompanyProfile> | null>(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -184,6 +185,40 @@ export function SettingsPage() {
                 onChange={(e) => setEditing({...editing, terms_and_conditions: e.target.value})}
                 placeholder="Enter default terms and conditions that will appear on your invoices..."
             />
+        </div>
+
+        <div className="card">
+            <div className="flex items-center gap-2 mb-4 text-slate-800 font-semibold border-b border-slate-100 pb-2">
+                <Moon size={18} />
+                <h3>Appearance & Theme</h3>
+            </div>
+            <p className="text-sm text-slate-500 mb-4">Choose how TradeFlow Nepal looks on your computer.</p>
+            <div className="grid grid-cols-3 gap-4">
+                <button
+                    type="button"
+                    onClick={() => setTheme("light")}
+                    className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${theme === "light" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-100 hover:border-slate-200 text-slate-600"}`}
+                >
+                    <Sun size={24} />
+                    <span className="text-sm font-medium">Light Mode</span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setTheme("dark")}
+                    className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${theme === "dark" ? "border-brand-500 bg-slate-800 text-white" : "border-slate-100 hover:border-slate-200 text-slate-600"}`}
+                >
+                    <Moon size={24} />
+                    <span className="text-sm font-medium">Dark Mode</span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setTheme("system")}
+                    className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${theme === "system" ? "border-brand-500 bg-slate-100 text-slate-900" : "border-slate-100 hover:border-slate-200 text-slate-600"}`}
+                >
+                    <Monitor size={24} />
+                    <span className="text-sm font-medium">System Preference</span>
+                </button>
+            </div>
         </div>
 
         <div className="flex items-center justify-between sticky bottom-0 bg-slate-50 py-4 border-t border-slate-200">
