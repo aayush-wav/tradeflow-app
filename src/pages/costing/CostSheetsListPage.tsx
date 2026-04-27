@@ -62,28 +62,34 @@ export function CostSheetsListPage() {
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {records.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group cursor-pointer" onClick={() => navigate(`/costing/${r.id}`)}>
+                  <td className="px-4 py-3 text-sm font-bold text-slate-900 dark:text-white uppercase tracking-tight">
                     {r.name}
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-600">
+                  <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
                     {r.incoterm || "—"}
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-600">
+                  <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
                     {r.freight_mode || "—"}
                   </td>
-                  <td className="px-4 py-3 text-sm text-right font-medium">
+                  <td className="px-4 py-3 text-sm text-right font-bold text-slate-900 dark:text-white">
                     {formatCurrency(r.total_cost_paisa)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-500">
+                  <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-500">
                     {formatADDate(r.created_at)}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
-                      onClick={() => setDeleteTarget(r)}
-                      className="p-1.5 text-slate-400 hover:text-red-600 rounded"
+                      onClick={(e) => { e.stopPropagation(); navigate(`/costing/${r.id}`); }}
+                      className="p-1.5 text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 rounded transition-colors mr-2"
+                    >
+                      <Eye size={15} />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}
+                      className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded transition-colors"
                     >
                       <Trash2 size={15} />
                     </button>

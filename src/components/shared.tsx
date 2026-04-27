@@ -61,7 +61,7 @@ export function LoadingSpinner({
   return (
     <div className={`flex items-center justify-center ${className}`}>
       <div
-        className={`${sizeClasses[size]} animate-spin rounded-full border-2 border-slate-200 border-t-blue-600`}
+        className={`${sizeClasses[size]} animate-spin rounded-full border-2 border-slate-200 dark:border-slate-800 border-t-blue-600`}
       />
     </div>
   );
@@ -79,12 +79,12 @@ export function SplashScreen() {
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white dark:bg-slate-950 transition-colors">
       <div className="flex flex-col items-center animate-in fade-in zoom-in duration-500">
-        <div className="w-24 h-24 bg-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-2xl shadow-blue-200">
+        <div className="w-24 h-24 bg-blue-600 rounded-3xl flex items-center justify-center mb-6 shadow-2xl shadow-blue-600/40">
           <svg className="w-14 h-14 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
           </svg>
         </div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">TradeFlow Nepal</h1>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">TradeFlow</h1>
         <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Initializing Business Environment...</p>
         <div className="mt-12">
             <div className="w-48 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -111,10 +111,10 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      {icon && <div className="text-slate-300 dark:text-slate-700 mb-4">{icon}</div>}
-      <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-1">{title}</h3>
+      {icon && <div className="text-slate-200 dark:text-slate-800 mb-4">{icon}</div>}
+      <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-1">{title}</h3>
       {description && (
-        <p className="text-sm text-slate-500 max-w-sm mb-4">{description}</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mb-4 leading-relaxed">{description}</p>
       )}
       {action}
     </div>
@@ -123,17 +123,17 @@ export function EmptyState({
 
 interface PageHeaderProps {
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   actions?: React.ReactNode;
 }
 
 export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
-    <div className="flex items-center justify-between mb-6">
+    <div className="flex items-center justify-between mb-6 px-1">
       <div>
         <h1 className="page-title">{title}</h1>
         {subtitle && (
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{subtitle}</p>
+          <div className="mt-1">{subtitle}</div>
         )}
       </div>
       {actions && <div className="flex items-center gap-3">{actions}</div>}

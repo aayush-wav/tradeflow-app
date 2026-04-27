@@ -17,6 +17,7 @@ import {
   PRODUCT_STATUSES,
 } from "../../constants";
 import { Plus, Edit2, Trash2, Package, Calculator } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import type { Product } from "../../types";
 
 const EMPTY_PRODUCT: Partial<Product> = {
@@ -31,10 +32,14 @@ const EMPTY_PRODUCT: Partial<Product> = {
   current_stock: 0,
   reorder_level: 0,
   buying_price_paisa: 0,
+  selling_price_paisa: 0,
   status: "Active",
+  carton_size: 1,
+  carton_weight_kg: 0,
 };
 
 export function ProductsPage() {
+  const navigate = useNavigate();
   const { products, isLoading, fetchProducts, addProduct, editProduct, removeProduct } =
     useProductStore();
   const [search, setSearch] = useState("");
@@ -43,6 +48,7 @@ export function ProductsPage() {
   const [editing, setEditing] = useState<Partial<Product> | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [buyingPrice, setBuyingPrice] = useState("");
+  const [sellingPrice, setSellingPrice] = useState("");
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
@@ -51,14 +57,22 @@ export function ProductsPage() {
   }, [fetchProducts]);
 
   const openCreate = () => {
-    setEditing({ ...EMPTY_PRODUCT });
+    setEditing({ 
+      ...EMPTY_PRODUCT,
+      current_stock: "" as any,
+      reorder_level: "" as any,
+      carton_size: "" as any,
+      carton_weight_kg: "" as any,
+    });
     setBuyingPrice("");
+    setSellingPrice("");
     setShowModal(true);
   };
 
   const openEdit = (p: Product) => {
     setEditing({ ...p });
     setBuyingPrice(String(paisaToRupees(p.buying_price_paisa)));
+    setSellingPrice(String(paisaToRupees(p.selling_price_paisa || 0)));
     setShowModal(true);
   };
 
@@ -70,6 +84,11 @@ export function ProductsPage() {
         ...EMPTY_PRODUCT,
         ...editing,
         buying_price_paisa: rupeesToPaisa(parseFloat(buyingPrice) || 0),
+        selling_price_paisa: rupeesToPaisa(parseFloat(sellingPrice) || 0),
+        current_stock: Number(editing.current_stock) || 0,
+        reorder_level: Number(editing.reorder_level) || 0,
+        carton_size: Number(editing.carton_size) || 1,
+        carton_weight_kg: Number(editing.carton_weight_kg) || 0,
       } as Product;
       if (editing.id) {
         await editProduct(product);
@@ -99,11 +118,11 @@ export function ProductsPage() {
   };
 
   const filtered = products.filter((p) => {
-    const matchSearch =
-      !search ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.product_id.toLowerCase().includes(search.toLowerCase()) ||
-      p.hs_code.includes(search);
+    const nameMatch = (p.name || "").toLowerCase().includes(search.toLowerCase());
+    const idMatch = (p.product_id || "").toLowerCase().includes(search.toLowerCase());
+    const hsMatch = (p.hs_code || "").includes(search);
+    
+    const matchSearch = !search || nameMatch || idMatch || hsMatch;
     const matchCategory = !categoryFilter || p.category === categoryFilter;
     return matchSearch && matchCategory;
   });
@@ -169,8 +188,11 @@ export function ProductsPage() {
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Category</th>
                   <th className="px-4 py-3">HS Code</th>
+                  <th className="px-4 py-3 text-right">Sold</th>
                   <th className="px-4 py-3 text-right">Stock</th>
-                  <th className="px-4 py-3 text-right">Buying Price</th>
+                  <th className="px-4 py-3 text-right">Carton Details</th>
+                  <th className="px-4 py-3 text-right">Buying</th>
+                  <th className="px-4 py-3 text-right">Selling</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
@@ -195,6 +217,9 @@ export function ProductsPage() {
                     <td className="px-4 py-3 text-sm font-mono text-slate-600 dark:text-slate-400">
                       {p.hs_code}
                     </td>
+                    <td className="px-4 py-3 text-sm text-right font-medium text-blue-600 dark:text-blue-400">
+                      {p.total_sold || 0}
+                    </td>
                     <td className="px-4 py-3 text-sm text-right">
                       <span
                         className={
@@ -209,8 +234,17 @@ export function ProductsPage() {
                         {p.unit_of_measure}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-slate-900 dark:text-white">
+                    <td className="px-4 py-3 text-sm text-right">
+                       <div className="flex flex-col items-end">
+                         <span className="font-bold text-slate-700 dark:text-slate-300">{p.carton_size} pcs/ctn</span>
+                         <span className="text-xs text-slate-400">{p.carton_weight_kg} kg/ctn</span>
+                       </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">
                       {formatCurrency(p.buying_price_paisa)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right font-bold text-slate-900 dark:text-white">
+                      {formatCurrency(p.selling_price_paisa || 0)}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={p.status} />
@@ -233,8 +267,8 @@ export function ProductsPage() {
                         </button>
                         <button
                            className="p-1.5 text-slate-400 hover:text-green-600 rounded"
-                           title="View Per Unit Detail"
-                           onClick={() => alert(`Landed Cost Calculation:\nBase: ${formatCurrency(p.buying_price_paisa)}\n(View Cost Sheet for full breakdown)`)}
+                           title="Go to Landed Cost Calculator"
+                           onClick={() => navigate("/forex")}
                         >
                            <Calculator size={15} />
                         </button>
@@ -310,7 +344,7 @@ export function ProductsPage() {
                 }
               />
             </div>
-            <div className="col-span-2">
+            <div>
               <label className="label-text">Buying Price (NPR)</label>
               <input
                 type="number"
@@ -322,18 +356,45 @@ export function ProductsPage() {
               />
             </div>
             <div>
-              <label className="label-text">Reorder Level</label>
+              <label className="label-text">Selling Price (NPR)</label>
               <input
                 type="number"
                 className="input-field"
-                value={editing.reorder_level || 0}
+                value={sellingPrice}
+                onChange={(e) => setSellingPrice(e.target.value)}
+                placeholder="0.00"
+                step="0.01"
+              />
+            </div>
+            <div>
+              <label className="label-text">{editing.id ? "Current Stock Correction" : "Initial Stock"}</label>
+              <input
+                type="number"
+                className="input-field"
+                value={editing.current_stock}
+                placeholder="0"
                 onChange={(e) =>
                   setEditing({
                     ...editing,
-                    reorder_level: parseInt(e.target.value) || 0,
+                    current_stock: e.target.value as any,
                   })
                 }
               />
+            </div>
+            <div>
+              <label className="label-text">Reorder Level</label>
+                <input
+                  type="number"
+                  className="input-field"
+                  value={editing.reorder_level}
+                  placeholder="0"
+                  onChange={(e) =>
+                    setEditing({
+                      ...editing,
+                      reorder_level: e.target.value as any,
+                    })
+                  }
+                />
             </div>
             <div>
               <label className="label-text">Status</label>
@@ -346,6 +407,32 @@ export function ProductsPage() {
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
+            </div>
+            <div className="col-span-2 grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+               <div className="col-span-2">
+                 <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-2">Snack Business Details</h4>
+               </div>
+               <div>
+                 <label className="label-text">Quantity per Carton</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={editing.carton_size}
+                    placeholder="1"
+                    onChange={(e) => setEditing({ ...editing, carton_size: e.target.value as any })}
+                  />
+               </div>
+               <div>
+                 <label className="label-text">Weight per Carton (kg)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="input-field"
+                    value={editing.carton_weight_kg}
+                    placeholder="0.00"
+                    onChange={(e) => setEditing({ ...editing, carton_weight_kg: e.target.value as any })}
+                  />
+               </div>
             </div>
             <div className="col-span-2">
               <label className="label-text">Description</label>

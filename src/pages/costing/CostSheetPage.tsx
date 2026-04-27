@@ -98,7 +98,7 @@ export function CostSheetPage() {
 
   const [transportMode, setTransportMode] = useState("Road");
   const [origin, setOrigin] = useState("");
-  const [destination, setDestination] = useState<string>(BORDER_CROSSINGS[0]);
+  const [destination, setDestination] = useState<string>("");
   const [transportCost, setTransportCost] = useState("0");
   const [loadingUnloading, setLoadingUnloading] = useState("0");
   const [packaging, setPackaging] = useState("0");
@@ -324,12 +324,10 @@ export function CostSheetPage() {
               </select>
             </div>
             <InputField label="Origin (Warehouse)" value={origin} onChange={setOrigin} type="text" placeholder="e.g., Kathmandu" />
-            <div>
-              <label className="label-text">Destination / Border Point</label>
-              <select className="select-field" value={destination} onChange={(e) => setDestination(e.target.value)}>
-                {BORDER_CROSSINGS.map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
-            </div>
+            <InputField label="Destination / Border Point" value={destination} onChange={setDestination} type="text" placeholder="e.g., Tribhuwan International Airport (TIA)" list="border-crossings" />
+            <datalist id="border-crossings">
+              {BORDER_CROSSINGS.map(b => <option key={b} value={b} />)}
+            </datalist>
             <InputField label="Transportation Cost (NPR)" value={transportCost} onChange={setTransportCost} prefix="Rs." />
             <InputField label="Loading/Unloading (NPR)" value={loadingUnloading} onChange={setLoadingUnloading} prefix="Rs." />
             <InputField label="Packaging & Labelling (NPR)" value={packaging} onChange={setPackaging} prefix="Rs." />

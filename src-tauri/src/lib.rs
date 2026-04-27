@@ -47,6 +47,19 @@ pub fn run() {
             get_dashboard_stats,
             get_monthly_revenue,
             get_financial_statement,
+            get_invoice_by_id,
+            seed_demo_data,
+            fetch_nrb_forex_rates,
+            get_cached_forex_rates,
+            search_hs_codes,
+            get_all_hs_categories,
+            calculate_landed_cost,
+            get_landed_cost_history,
+            get_bank_transactions,
+            create_bank_transaction,
+            delete_bank_transaction,
+            get_production_records,
+            create_production_record,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

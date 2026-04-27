@@ -80,6 +80,7 @@ export const INCOTERMS = [
 ] as const;
 
 export const BORDER_CROSSINGS = [
+  "Tribhuwan International Airport (TIA)",
   "Birgunj (Raxaul)",
   "Biratnagar",
   "Bhairahawa (Sunauli)",

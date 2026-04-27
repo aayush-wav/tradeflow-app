@@ -70,8 +70,8 @@ export function StockLedgerPage() {
               <span className="ml-2">{selectedProduct.reorder_level}</span>
             </div>
             <div>
-              <span className="text-slate-500">HS Code:</span>
-              <span className="ml-2 font-mono">{selectedProduct.hs_code}</span>
+              <span className="text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold">HS Code:</span>
+              <span className="ml-2 font-mono dark:text-slate-200">{selectedProduct.hs_code}</span>
             </div>
           </div>
         </div>
@@ -86,58 +86,74 @@ export function StockLedgerPage() {
               <EmptyState
                 icon={<BookOpen size={40} />}
                 title="No transactions yet"
-                description="Stock transactions will appear here as you create invoices and purchase orders."
+                description="Stock transactions will appear here as you create invoices, production logs or purchases."
               />
             </div>
           ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="table-header">
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3 text-right">In</th>
-                  <th className="px-4 py-3 text-right">Out</th>
-                  <th className="px-4 py-3">Reference</th>
-                  <th className="px-4 py-3">Notes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {transactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 text-sm">
-                      {formatADDate(tx.transaction_date)}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          tx.transaction_type === "Purchase"
-                            ? "bg-green-100 text-green-700"
-                            : tx.transaction_type === "Sale"
-                              ? "bg-blue-100 text-blue-700"
-                              : tx.transaction_type === "Return"
-                                ? "bg-amber-100 text-amber-700"
-                                : "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {tx.transaction_type}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right text-green-600 font-medium">
-                      {tx.quantity_in > 0 ? `+${tx.quantity_in}` : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right text-red-600 font-medium">
-                      {tx.quantity_out > 0 ? `-${tx.quantity_out}` : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-600 font-mono">
-                      {tx.reference || "—"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-500">
-                      {tx.notes || "—"}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800 text-[11px] font-black uppercase tracking-widest text-slate-400">
+                    <th className="px-6 py-4">Date</th>
+                    <th className="px-6 py-4">Type</th>
+                    <th className="px-6 py-4 text-right text-green-600">In (+)</th>
+                    <th className="px-6 py-4 text-right text-red-600">Out (-)</th>
+                    <th className="px-6 py-4 text-right text-blue-600">Balance</th>
+                    <th className="px-6 py-4 text-center">Ref / Note</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {(() => {
+                    // Calculate running balance
+                    const withBalance = [...transactions]
+                      .sort((a, b) => new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime())
+                      .reduce((acc, tx, idx) => {
+                        const prevBalance = idx === 0 ? 0 : acc[idx - 1].balance;
+                        const balance = prevBalance + tx.quantity_in - tx.quantity_out;
+                        acc.push({ ...tx, balance });
+                        return acc;
+                      }, [] as (InventoryTransaction & { balance: number })[])
+                      .reverse();
+
+                    return withBalance.map((tx) => (
+                      <tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-300">
+                          {formatADDate(tx.transaction_date)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter ${
+                              tx.transaction_type === "Purchase" || tx.transaction_type === "Production"
+                                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800"
+                                : tx.transaction_type === "Sale"
+                                  ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800"
+                                  : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
+                            }`}
+                          >
+                            {tx.transaction_type}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-right text-green-600 font-black">
+                          {tx.quantity_in > 0 ? `+${tx.quantity_in}` : "—"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-right text-red-600 font-black">
+                          {tx.quantity_out > 0 ? `-${tx.quantity_out}` : "—"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-right text-slate-900 dark:text-white font-black">
+                          {tx.balance}
+                        </td>
+                        <td className="px-6 py-4">
+                           <div className="flex flex-col">
+                             <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{tx.reference || "—"}</span>
+                             <span className="text-[10px] italic text-slate-400">{tx.notes}</span>
+                           </div>
+                        </td>
+                      </tr>
+                    ));
+                  })()}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}

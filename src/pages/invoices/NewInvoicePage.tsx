@@ -33,22 +33,25 @@ export function NewInvoicePage() {
   const [currency, setCurrency] = useState("NPR");
   const [exchangeRate, setExchangeRate] = useState("1");
   const [applyVat, setApplyVat] = useState(true);
-  const [freight, setFreight] = useState("0");
-  const [insurance, setInsurance] = useState("0");
-  const [discountTotal, setDiscountTotal] = useState("0");
+  const [freight, setFreight] = useState("");
+  const [insurance, setInsurance] = useState("");
+  const [discountTotal, setDiscountTotal] = useState("");
   const [terms, setTerms] = useState("");
+  const [weightKg, setWeightKg] = useState("");
+  const [noOfCartons, setNoOfCartons] = useState("");
+  const [transportMode, setTransportMode] = useState("Truck");
 
   const [items, setItems] = useState<
     {
       product_id: string;
       hs_code: string;
       description: string;
-      quantity: number;
+      quantity: number | string;
       unit: string;
-      unit_price: number;
-      discount_percent: number;
+      unit_price: number | string;
+      discount_percent: number | string;
     }[]
-  >([{ product_id: "", hs_code: "", description: "", quantity: 1, unit: "piece", unit_price: 0, discount_percent: 0 }]);
+  >([{ product_id: "", hs_code: "", description: "", quantity: 1, unit: "piece", unit_price: "", discount_percent: "" }]);
 
   useEffect(() => {
     Promise.all([
@@ -73,7 +76,7 @@ export function NewInvoicePage() {
   const selectedParty = parties.find((p) => p.id === partyId);
 
   const addLineItem = () => {
-    setItems([...items, { product_id: "", hs_code: "", description: "", quantity: 1, unit: "piece", unit_price: 0, discount_percent: 0 }]);
+    setItems([...items, { product_id: "", hs_code: "", description: "", quantity: 1, unit: "piece", unit_price: "", discount_percent: "" }]);
   };
 
   const removeLineItem = (idx: number) => {
@@ -97,8 +100,11 @@ export function NewInvoicePage() {
   };
 
   const lineTotal = (item: (typeof items)[0]) => {
-    const gross = item.quantity * item.unit_price;
-    const disc = gross * (item.discount_percent / 100);
+    const qty = typeof item.quantity === "number" ? item.quantity : parseFloat(item.quantity) || 0;
+    const price = typeof item.unit_price === "number" ? item.unit_price : parseFloat(item.unit_price) || 0;
+    const discPct = typeof item.discount_percent === "number" ? item.discount_percent : parseFloat(item.discount_percent) || 0;
+    const gross = qty * price;
+    const disc = gross * (discPct / 100);
     return gross - disc;
   };
 
@@ -142,23 +148,32 @@ export function NewInvoicePage() {
         terms_and_conditions: terms || null,
         notes: null,
         shipment_record_id: null,
+        weight_kg: parseFloat(weightKg) || null,
+        no_of_cartons: parseInt(noOfCartons) || null,
+        transport_mode: transportMode || null,
         created_at: "",
         updated_at: "",
       };
 
-      const invoiceItems: InvoiceItem[] = items.map((item) => ({
-        id: "",
-        invoice_id: "",
-        product_id: item.product_id || null,
-        hs_code: item.hs_code || null,
-        description: item.description,
-        quantity: item.quantity,
-        unit: item.unit,
-        unit_price_paisa: rupeesToPaisa(item.unit_price),
-        discount_percent: item.discount_percent,
-        discount_paisa: rupeesToPaisa(item.quantity * item.unit_price * (item.discount_percent / 100)),
-        amount_paisa: rupeesToPaisa(lineTotal(item)),
-      }));
+      const invoiceItems: InvoiceItem[] = items.map((item) => {
+        const qty = typeof item.quantity === "number" ? item.quantity : parseFloat(item.quantity) || 0;
+        const price = typeof item.unit_price === "number" ? item.unit_price : parseFloat(item.unit_price) || 0;
+        const discPct = typeof item.discount_percent === "number" ? item.discount_percent : parseFloat(item.discount_percent) || 0;
+        
+        return {
+          id: "",
+          invoice_id: "",
+          product_id: item.product_id || null,
+          hs_code: item.hs_code || null,
+          description: item.description,
+          quantity: qty,
+          unit: item.unit,
+          unit_price_paisa: rupeesToPaisa(price),
+          discount_percent: discPct,
+          discount_paisa: rupeesToPaisa(qty * price * (discPct / 100)),
+          amount_paisa: rupeesToPaisa(lineTotal(item)),
+        };
+      });
 
       await addInvoice(invoice, invoiceItems);
       setToast({ message: "Invoice created successfully", type: "success" });
@@ -218,10 +233,11 @@ export function NewInvoicePage() {
               </select>
             </div>
             {selectedParty && (
-              <div className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3">
+              <div className="text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
+                <p className="font-medium text-slate-900 dark:text-white">{selectedParty.company_name}</p>
                 <p>{selectedParty.address || "No address"}</p>
                 <p>{selectedParty.country}</p>
-                {selectedParty.pan_number && <p>PAN: {selectedParty.pan_number}</p>}
+                {selectedParty.pan_number && <p className="mt-1 font-mono uppercase text-xs">PAN: {selectedParty.pan_number}</p>}
               </div>
             )}
             <div>
@@ -249,12 +265,32 @@ export function NewInvoicePage() {
             {currency !== "NPR" && (
               <div>
                 <label className="label-text">Exchange Rate (1 {currency} = NPR)</label>
-                <input type="number" className="input-field" value={exchangeRate} onChange={(e) => setExchangeRate(e.target.value)} />
+                <input type="number" className="input-field" value={exchangeRate} placeholder="1.00" onChange={(e) => setExchangeRate(e.target.value)} />
               </div>
             )}
             <div>
               <label className="label-text">Port of Loading</label>
               <input className="input-field" value={portOfLoading} onChange={(e) => setPortOfLoading(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+               <div>
+                  <label className="label-text">Weight (kg)</label>
+                   <input type="number" className="input-field" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="0.00" />
+               </div>
+               <div>
+                  <label className="label-text">No. Cartons</label>
+                   <input type="number" className="input-field" value={noOfCartons} onChange={(e) => setNoOfCartons(e.target.value)} placeholder="0" />
+               </div>
+            </div>
+            <div>
+              <label className="label-text">Transport Mode</label>
+              <select className="select-field" value={transportMode} onChange={(e) => setTransportMode(e.target.value)}>
+                 <option value="Truck">Truck</option>
+                 <option value="Sea">Sea Freight</option>
+                 <option value="Air">Air Freight</option>
+                 <option value="Train">Railway</option>
+                 <option value="Courier">Courier</option>
+              </select>
             </div>
           </div>
         </div>
@@ -276,7 +312,7 @@ export function NewInvoicePage() {
               <th className="px-3 py-2 w-10"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {items.map((item, idx) => (
               <tr key={idx}>
                 <td className="px-3 py-2">
@@ -296,16 +332,16 @@ export function NewInvoicePage() {
                   <input className="input-field text-xs" value={item.description} onChange={(e) => updateLineItem(idx, "description", e.target.value)} />
                 </td>
                 <td className="px-3 py-2">
-                  <input type="number" className="input-field text-xs text-right" value={item.quantity} onChange={(e) => updateLineItem(idx, "quantity", parseFloat(e.target.value) || 0)} />
+                  <input type="number" className="input-field text-xs text-right" value={item.quantity} placeholder="0" onChange={(e) => updateLineItem(idx, "quantity", e.target.value)} />
                 </td>
                 <td className="px-3 py-2">
                   <input className="input-field text-xs" value={item.unit} onChange={(e) => updateLineItem(idx, "unit", e.target.value)} />
                 </td>
                 <td className="px-3 py-2">
-                  <input type="number" className="input-field text-xs text-right" value={item.unit_price} onChange={(e) => updateLineItem(idx, "unit_price", parseFloat(e.target.value) || 0)} />
+                  <input type="number" className="input-field text-xs text-right" value={item.unit_price} placeholder="0" onChange={(e) => updateLineItem(idx, "unit_price", e.target.value)} />
                 </td>
                 <td className="px-3 py-2">
-                  <input type="number" className="input-field text-xs text-right" value={item.discount_percent} onChange={(e) => updateLineItem(idx, "discount_percent", parseFloat(e.target.value) || 0)} />
+                  <input type="number" className="input-field text-xs text-right" value={item.discount_percent} placeholder="0" onChange={(e) => updateLineItem(idx, "discount_percent", e.target.value)} />
                 </td>
                 <td className="px-3 py-2 text-right font-medium">
                   {formatCurrency(rupeesToPaisa(lineTotal(item)), currency)}
@@ -329,8 +365,8 @@ export function NewInvoicePage() {
           <h3 className="section-title mb-3">Terms & Conditions</h3>
           <textarea className="input-field" rows={5} value={terms} onChange={(e) => setTerms(e.target.value)} />
           <div className="mt-3 flex items-center gap-3">
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={applyVat} onChange={(e) => setApplyVat(e.target.checked)} className="rounded border-slate-300" />
+            <label className="flex items-center gap-2 text-sm cursor-pointer text-slate-700 dark:text-slate-300">
+              <input type="checkbox" checked={applyVat} onChange={(e) => setApplyVat(e.target.checked)} className="rounded border-slate-300 dark:border-slate-700 dark:bg-slate-800" />
               Apply VAT (13%)
             </label>
           </div>
@@ -342,22 +378,22 @@ export function NewInvoicePage() {
             <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span>{formatCurrency(rupeesToPaisa(subtotal), currency)}</span></div>
             <div className="flex justify-between items-center">
               <span className="text-slate-500">Freight</span>
-              <input type="number" className="input-field w-36 text-right text-sm" value={freight} onChange={(e) => setFreight(e.target.value)} />
+              <input type="number" className="input-field w-36 text-right text-sm" value={freight} placeholder="0" onChange={(e) => setFreight(e.target.value)} />
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-500">Insurance</span>
-              <input type="number" className="input-field w-36 text-right text-sm" value={insurance} onChange={(e) => setInsurance(e.target.value)} />
+              <input type="number" className="input-field w-36 text-right text-sm" value={insurance} placeholder="0" onChange={(e) => setInsurance(e.target.value)} />
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-500">Discount</span>
-              <input type="number" className="input-field w-36 text-right text-sm" value={discountTotal} onChange={(e) => setDiscountTotal(e.target.value)} />
+              <input type="number" className="input-field w-36 text-right text-sm" value={discountTotal} placeholder="0" onChange={(e) => setDiscountTotal(e.target.value)} />
             </div>
             {applyVat && (
               <div className="flex justify-between"><span className="text-slate-500">VAT (13%)</span><span>{formatCurrency(rupeesToPaisa(vatAmount), currency)}</span></div>
             )}
-            <div className="border-t pt-3 flex justify-between font-bold text-base">
+            <div className="border-t border-slate-200 dark:border-slate-800 pt-3 flex justify-between font-bold text-base text-slate-900 dark:text-white">
               <span>Grand Total</span>
-              <span>{formatCurrency(rupeesToPaisa(grandTotal), currency)}</span>
+              <span className="text-blue-600 dark:text-blue-400">{formatCurrency(rupeesToPaisa(grandTotal), currency)}</span>
             </div>
             <p className="text-xs text-slate-500 italic mt-2">
               {numberToWords(paisaToRupees(rupeesToPaisa(grandTotal)))}

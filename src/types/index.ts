@@ -52,7 +52,11 @@ export interface Product {
   current_stock: number;
   reorder_level: number;
   buying_price_paisa: number;
+  selling_price_paisa: number;
   status: string;
+  total_sold?: number;
+  carton_size?: number;
+  carton_weight_kg?: number;
   created_at: string;
   updated_at: string;
 }
@@ -117,6 +121,9 @@ export interface Invoice {
   terms_and_conditions: string | null;
   notes: string | null;
   shipment_record_id: string | null;
+  weight_kg?: number;
+  no_of_cartons?: number;
+  transport_mode?: string;
   created_at: string;
   updated_at: string;
 }
@@ -223,6 +230,7 @@ export interface ProfitTarget {
 export interface DashboardStats {
   total_revenue_paisa: number;
   total_expenses_paisa: number;
+  cash_balance_paisa: number;
   invoices_paid: number;
   invoices_unpaid: number;
   invoices_overdue: number;
@@ -242,10 +250,82 @@ export interface FinancialStatement {
   cost_of_goods_sold_paisa: number;
   gross_profit_paisa: number;
   total_receivables_paisa: number;
+  cash_balance_paisa: number;
   total_assets_paisa: number;
 }
 
 export interface CustomCostItem {
   label: string;
   amount_paisa: number;
+}
+
+// ========== FOREX & LANDED COST TYPES ==========
+
+export interface ForexRate {
+  iso3: string;
+  currency_name: string;
+  unit: number;
+  buy: string;
+  sell: string;
+}
+
+export interface ForexSnapshot {
+  date: string;
+  rates: ForexRate[];
+}
+
+export interface HsTariffCode {
+  code: string;
+  description: string;
+  customs_duty_pct: number;
+  excise_duty_pct: number;
+  category: string;
+  notes: string | null;
+}
+
+export interface LandedCostCalc {
+  id: string;
+  hs_code: string;
+  description: string;
+  cif_value: number;
+  currency: string;
+  exchange_rate: number;
+  cif_npr: number;
+  customs_duty_pct: number;
+  customs_duty_npr: number;
+  excise_duty_pct: number;
+  excise_duty_npr: number;
+  vat_pct: number;
+  vat_npr: number;
+  total_landed_cost_npr: number;
+  quantity: number;
+  cost_per_unit_npr: number;
+  created_at: string | null;
+}
+
+export interface BankTransaction {
+  id: string;
+  bank_name: string;
+  account_number: string;
+  transaction_type: string;
+  amount_paisa: number;
+  currency: string;
+  exchange_rate: number;
+  purpose: string | null;
+  party_id: string | null;
+  reference: string | null;
+  transaction_date: string;
+  created_at: string;
+}
+
+export interface ProductionRecord {
+  id: string;
+  product_id: string;
+  quantity: number;
+  unit: string;
+  batch_number: string | null;
+  production_date: string;
+  expiry_date: string | null;
+  notes: string | null;
+  created_at: string;
 }

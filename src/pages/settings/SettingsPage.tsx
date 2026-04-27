@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useProfileStore, useUIStore } from "../../stores";
 import { PageHeader, PageLoader, Toast } from "../../components/shared";
 import { CURRENCIES, PROVINCES_NEPAL, FISCAL_YEAR_START_MONTH } from "../../constants";
-import { Save, Building2, Landmark, Globe, Phone, Mail, MapPin, Upload, FileText, Moon, Sun, Monitor } from "lucide-react";
+import { Save, Building2, Globe, Phone, Mail, MapPin, Upload, FileText, Moon, Sun, Monitor, Database } from "lucide-react";
 import type { CompanyProfile } from "../../types";
 
 export function SettingsPage() {
@@ -66,6 +66,11 @@ export function SettingsPage() {
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.type !== 'image/png') {
+        setToast({ message: "Only PNG files with transparent background are accepted.", type: "error" });
+        e.target.value = '';
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
@@ -102,12 +107,12 @@ export function SettingsPage() {
                     </div>
                     <label className="absolute inset-0 cursor-pointer opacity-0 group-hover:opacity-100 bg-black/40 flex items-center justify-center text-white text-xs font-medium transition-opacity rounded-lg">
                         Change Logo
-                        <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
+                        <input type="file" className="hidden" accept="image/png" onChange={handleLogoUpload} />
                     </label>
                 </div>
                 <div>
                      <p className="text-sm font-medium text-slate-900">Company Logo</p>
-                     <p className="text-xs text-slate-500 mt-1">Logo will appear on all invoices and reports.</p>
+                     <p className="text-xs text-slate-500 mt-1">PNG only with transparent background. Logo will appear on all invoices and reports.</p>
                 </div>
              </div>
 
@@ -151,7 +156,7 @@ export function SettingsPage() {
 
         <div className="card">
           <div className="flex items-center gap-2 mb-4 text-slate-800 font-semibold border-b border-slate-100 pb-2">
-            <Landmark size={18} />
+            <Building2 size={18} />
             <h3>Banking Details (For Invoices)</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -187,17 +192,19 @@ export function SettingsPage() {
             />
         </div>
 
+
+
         <div className="card">
-            <div className="flex items-center gap-2 mb-4 text-slate-800 font-semibold border-b border-slate-100 pb-2">
+            <div className="flex items-center gap-2 mb-4 text-slate-800 dark:text-white font-semibold border-b border-slate-100 dark:border-slate-800 pb-2">
                 <Moon size={18} />
                 <h3>Appearance & Theme</h3>
             </div>
-            <p className="text-sm text-slate-500 mb-4">Choose how TradeFlow Nepal looks on your computer.</p>
+            <p className="text-sm text-slate-500 mb-4">Choose how TradeFlow looks on your computer.</p>
             <div className="grid grid-cols-3 gap-4">
                 <button
                     type="button"
                     onClick={() => setTheme("light")}
-                    className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${theme === "light" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-100 hover:border-slate-200 text-slate-600"}`}
+                    className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${theme === "light" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-transparent bg-slate-50 dark:bg-slate-900 text-slate-600"}`}
                 >
                     <Sun size={24} />
                     <span className="text-sm font-medium">Light Mode</span>
@@ -205,7 +212,7 @@ export function SettingsPage() {
                 <button
                     type="button"
                     onClick={() => setTheme("dark")}
-                    className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${theme === "dark" ? "border-brand-500 bg-slate-800 text-white" : "border-slate-100 hover:border-slate-200 text-slate-600"}`}
+                    className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${theme === "dark" ? "border-brand-500 bg-slate-800 text-white" : "border-transparent bg-slate-50 dark:bg-slate-900 text-slate-600"}`}
                 >
                     <Moon size={24} />
                     <span className="text-sm font-medium">Dark Mode</span>
@@ -213,7 +220,7 @@ export function SettingsPage() {
                 <button
                     type="button"
                     onClick={() => setTheme("system")}
-                    className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${theme === "system" ? "border-brand-500 bg-slate-100 text-slate-900" : "border-slate-100 hover:border-slate-200 text-slate-600"}`}
+                    className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${theme === "system" ? "border-brand-500 bg-slate-100 text-slate-900" : "border-transparent bg-slate-50 dark:bg-slate-900 text-slate-600"}`}
                 >
                     <Monitor size={24} />
                     <span className="text-sm font-medium">System Preference</span>

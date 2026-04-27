@@ -1,16 +1,16 @@
 [package]
-name = "tradeflow-nepal"
+name = "tradeflow"
 version = "1.0.0"
-description = "TradeFlow Nepal - Import/Export Business Management"
-authors = ["TradeFlow Nepal"]
+description = "TradeFlow - Import/Export Business Management"
+authors = ["TradeFlow"]
 edition = "2021"
 
 [lib]
-name = "tradeflow_nepal_lib"
+name = "tradeflow_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "tradeflow-nepal"
+name = "tradeflow"
 path = "src/main.rs"
 
 [build-dependencies]
@@ -31,6 +31,7 @@ chrono = { version = "0.4", features = ["serde"] }
 anyhow = "1"
 tokio = { version = "1", features = ["full"] }
 dirs = "5"
+reqwest = { version = "0.12", features = ["blocking", "json"] }
 
 [features]
 default = ["custom-protocol"]

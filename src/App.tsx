@@ -10,13 +10,18 @@ import { StockLedgerPage } from "./pages/products/StockLedgerPage";
 import { PartiesPage } from "./pages/parties/PartiesPage";
 import { InvoicesListPage } from "./pages/invoices/InvoicesListPage";
 import { NewInvoicePage } from "./pages/invoices/NewInvoicePage";
+import { InvoiceDetailPage } from "./pages/invoices/InvoiceDetailPage";
 import { CostSheetPage } from "./pages/costing/CostSheetPage";
 import { CostSheetsListPage } from "./pages/costing/CostSheetsListPage";
+import { CostSheetDetailPage } from "./pages/costing/CostSheetDetailPage";
 import { RoutesPage } from "./pages/routes/RoutesPage";
 import { ProfitTargetsPage } from "./pages/profit/ProfitTargetsPage";
 import { SettingsPage } from "./pages/settings/SettingsPage";
 import { ReportsPage } from "./pages/reports/ReportsPage";
 import { AccountingPage } from "./pages/reports/AccountingPage";
+import { ForexLandedCostPage } from "./pages/forex/ForexLandedCostPage";
+import BankHistoryPage from "./pages/banking/BankHistoryPage";
+import ProductionTrackingPage from "./pages/production/ProductionTrackingPage";
 
 export default function App() {
   const { isLoggedIn, checkExistingAccount } = useAuthStore();
@@ -77,21 +82,26 @@ export default function App() {
             {/* Inventory */}
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/stock-ledger" element={<StockLedgerPage />} />
+            <Route path="/production" element={<ProductionTrackingPage />} />
+            <Route path="/bank-history" element={<BankHistoryPage />} />
             
             {/* Sales & Invoicing */}
             <Route path="/invoices" element={<InvoicesListPage />} />
             <Route path="/invoices/new" element={<NewInvoicePage />} />
+            <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
             <Route path="/customers" element={<PartiesPage partyType="Customer" />} />
             
             {/* Costing */}
             <Route path="/costing" element={<CostSheetsListPage />} />
             <Route path="/costing/new" element={<CostSheetPage />} />
+            <Route path="/costing/:id" element={<CostSheetDetailPage />} />
             <Route path="/routes" element={<RoutesPage />} />
             
             {/* Business Analysis */}
             <Route path="/profit-targets" element={<ProfitTargetsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/accounting" element={<AccountingPage />} />
+            <Route path="/forex" element={<ForexLandedCostPage />} />
             
             {/* Suppliers */}
             <Route path="/suppliers" element={<PartiesPage partyType="Supplier" />} />

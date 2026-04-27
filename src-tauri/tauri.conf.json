@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "TradeFlow Nepal",
+  "productName": "TradeFlow",
   "version": "1.0.0",
-  "identifier": "com.tradeflow.nepal",
+  "identifier": "com.tradeflow.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "TradeFlow Nepal",
+        "title": "TradeFlow",
         "width": 1400,
         "height": 900,
         "minWidth": 1280,

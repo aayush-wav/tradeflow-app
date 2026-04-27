@@ -9,6 +9,8 @@ import type {
   Route,
   ProfitTarget,
   DashboardStats,
+  BankTransaction,
+  ProductionRecord,
 } from "../types";
 
 interface AuthStore {
@@ -54,7 +56,28 @@ export const useAuthStore = create<AuthStore>((set) => ({
       return false;
     }
   },
-  enterDemoMode: () => set({ userId: "demo-user", isLoggedIn: true }),
+  enterDemoMode: async () => {
+    set({ isLoading: true });
+    try {
+      await api.seedDemoData();
+      // Apply demo logo to the company profile
+      try {
+        const { DEMO_LOGO_BASE64 } = await import("../assets/demo-logo");
+        const profile = await api.getCompanyProfile();
+        if (profile && !profile.logo_base64) {
+          await api.saveCompanyProfile({ ...profile, logo_base64: DEMO_LOGO_BASE64 });
+        }
+      } catch { /* logo is optional */ }
+      set({ userId: "demo-user", isLoggedIn: true });
+    } catch (err) {
+      console.error("Failed to seed demo data:", err);
+      // Still allow enter but maybe show error? 
+      // User just wants it to work.
+      set({ userId: "demo-user", isLoggedIn: true });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
 }));
 
 interface ProfileStore {
@@ -318,5 +341,62 @@ export const useUIStore = create<UIStore>((set) => ({
   setTheme: (theme) => {
     localStorage.setItem("theme", theme);
     set({ theme });
+  },
+}));
+
+interface BankStore {
+  transactions: BankTransaction[];
+  isLoading: boolean;
+  fetchTransactions: () => Promise<void>;
+  addTransaction: (tx: BankTransaction) => Promise<string>;
+  removeTransaction: (id: string) => Promise<void>;
+}
+
+export const useBankStore = create<BankStore>((set, get) => ({
+  transactions: [],
+  isLoading: false,
+  fetchTransactions: async () => {
+    set({ isLoading: true });
+    try {
+      const transactions = await api.getBankTransactions();
+      set({ transactions });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+  addTransaction: async (tx) => {
+    const id = await api.createBankTransaction(tx);
+    await get().fetchTransactions();
+    return id;
+  },
+  removeTransaction: async (id) => {
+    await api.deleteBankTransaction(id);
+    await get().fetchTransactions();
+  },
+}));
+
+interface ProductionStore {
+  records: ProductionRecord[];
+  isLoading: boolean;
+  fetchRecords: () => Promise<void>;
+  addRecord: (record: ProductionRecord) => Promise<string>;
+}
+
+export const useProductionStore = create<ProductionStore>((set, get) => ({
+  records: [],
+  isLoading: false,
+  fetchRecords: async () => {
+    set({ isLoading: true });
+    try {
+      const records = await api.getProductionRecords();
+      set({ records });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+  addRecord: async (record) => {
+    const id = await api.createProductionRecord(record);
+    await get().fetchRecords();
+    return id;
   },
 }));

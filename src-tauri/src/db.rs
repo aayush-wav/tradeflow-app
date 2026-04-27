@@ -1,6 +1,7 @@
 use rusqlite::{Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
+use chrono::Utc;
 
 pub struct DbState(pub Mutex<Connection>);
 
@@ -55,7 +56,11 @@ pub struct Product {
     pub current_stock: i64,
     pub reorder_level: i64,
     pub buying_price_paisa: i64,
+    pub selling_price_paisa: i64,
     pub status: String,
+    pub total_sold: Option<i64>,
+    pub carton_size: Option<i32>,
+    pub carton_weight_kg: Option<f64>,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
 }
@@ -123,6 +128,9 @@ pub struct Invoice {
     pub terms_and_conditions: Option<String>,
     pub notes: Option<String>,
     pub shipment_record_id: Option<String>,
+    pub weight_kg: Option<f64>,
+    pub no_of_cartons: Option<i32>,
+    pub transport_mode: Option<String>,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
 }
@@ -182,7 +190,7 @@ pub struct ShipmentRecord {
     pub storage_demurrage_paisa: i64,
     pub scanner_charges_paisa: i64,
     pub freight_mode: Option<String>,
-    pub freight_cost_original: i64,
+    pub freight_cost_original: f64,
     pub freight_currency: String,
     pub freight_exchange_rate: f64,
     pub freight_cost_npr_paisa: i64,
@@ -229,6 +237,81 @@ pub struct ProfitTarget {
     pub notes: Option<String>,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ForexRate {
+    pub iso3: String,
+    pub currency_name: String,
+    pub unit: i32,
+    pub buy: String,
+    pub sell: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ForexSnapshot {
+    pub date: String,
+    pub rates: Vec<ForexRate>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HsTariffCode {
+    pub code: String,
+    pub description: String,
+    pub customs_duty_pct: f64,
+    pub excise_duty_pct: f64,
+    pub category: String,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LandedCostCalc {
+    pub id: String,
+    pub hs_code: String,
+    pub description: String,
+    pub cif_value: f64,
+    pub currency: String,
+    pub exchange_rate: f64,
+    pub cif_npr: f64,
+    pub customs_duty_pct: f64,
+    pub customs_duty_npr: f64,
+    pub excise_duty_pct: f64,
+    pub excise_duty_npr: f64,
+    pub vat_pct: f64,
+    pub vat_npr: f64,
+    pub total_landed_cost_npr: f64,
+    pub quantity: f64,
+    pub cost_per_unit_npr: f64,
+    pub created_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BankTransaction {
+    pub id: Option<String>,
+    pub bank_name: String,
+    pub account_number: String,
+    pub transaction_type: String, // Deposit / Withdrawal
+    pub amount_paisa: i64,
+    pub currency: String,
+    pub exchange_rate: f64,
+    pub purpose: Option<String>,
+    pub party_id: Option<String>,
+    pub reference: Option<String>,
+    pub transaction_date: String,
+    pub created_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProductionRecord {
+    pub id: Option<String>,
+    pub product_id: String,
+    pub quantity: f64,
+    pub unit: String,
+    pub batch_number: Option<String>,
+    pub production_date: String,
+    pub expiry_date: Option<String>,
+    pub notes: Option<String>,
+    pub created_at: Option<String>,
 }
 
 pub fn run_migrations(conn: &Connection) -> Result<()> {
@@ -284,9 +367,12 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
             current_stock INTEGER NOT NULL DEFAULT 0,
             reorder_level INTEGER NOT NULL DEFAULT 0,
             buying_price_paisa INTEGER NOT NULL DEFAULT 0,
+            selling_price_paisa INTEGER NOT NULL DEFAULT 0,
             status TEXT NOT NULL DEFAULT 'Active',
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            carton_size INTEGER DEFAULT 1,
+            carton_weight_kg REAL DEFAULT 0.0
         );
 
         CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
@@ -363,6 +449,9 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
             shipment_record_id TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            weight_kg REAL,
+            no_of_cartons INTEGER,
+            transport_mode TEXT,
             FOREIGN KEY (party_id) REFERENCES parties(id) ON DELETE RESTRICT
         );
 
@@ -429,8 +518,8 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
             storage_demurrage_paisa INTEGER NOT NULL DEFAULT 0,
             scanner_charges_paisa INTEGER NOT NULL DEFAULT 0,
             freight_mode TEXT,
-            freight_cost_original INTEGER NOT NULL DEFAULT 0,
-            freight_currency TEXT NOT NULL DEFAULT 'NPR',
+            freight_cost_original REAL NOT NULL DEFAULT 0.0,
+            freight_currency TEXT NOT NULL DEFAULT 'USD',
             freight_exchange_rate REAL NOT NULL DEFAULT 1.0,
             freight_cost_npr_paisa INTEGER NOT NULL DEFAULT 0,
             freight_insurance_paisa INTEGER NOT NULL DEFAULT 0,
@@ -453,7 +542,9 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
-        CREATE TABLE IF NOT EXISTS routes (
+        CREATE INDEX IF NOT EXISTS idx_shipment_records_name ON shipment_records(name);
+
+        CREATE TABLE IF NOT EXISTS trade_routes (
             id TEXT PRIMARY KEY NOT NULL,
             name TEXT NOT NULL,
             border_crossing TEXT NOT NULL,
@@ -477,14 +568,85 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
             FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
         );
 
-        CREATE TABLE IF NOT EXISTS custom_cost_labels (
-            id TEXT PRIMARY KEY NOT NULL,
-            shipment_record_id TEXT NOT NULL,
-            label TEXT NOT NULL,
-            amount_paisa INTEGER NOT NULL DEFAULT 0,
-            FOREIGN KEY (shipment_record_id) REFERENCES shipment_records(id) ON DELETE CASCADE
+        CREATE TABLE IF NOT EXISTS forex_rates (
+            iso3 TEXT PRIMARY KEY NOT NULL,
+            currency_name TEXT NOT NULL,
+            unit INTEGER NOT NULL,
+            buy TEXT NOT NULL,
+            sell TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
+
+        CREATE TABLE IF NOT EXISTS hs_tariff_codes (
+            code TEXT PRIMARY KEY NOT NULL,
+            description TEXT NOT NULL,
+            customs_duty_pct REAL NOT NULL DEFAULT 0.0,
+            excise_duty_pct REAL NOT NULL DEFAULT 0.0,
+            category TEXT NOT NULL,
+            notes TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS landed_cost_calculations (
+            id TEXT PRIMARY KEY NOT NULL,
+            hs_code TEXT NOT NULL,
+            description TEXT NOT NULL,
+            cif_value REAL NOT NULL,
+            currency TEXT NOT NULL,
+            exchange_rate REAL NOT NULL,
+            cif_npr REAL NOT NULL,
+            customs_duty_pct REAL NOT NULL,
+            customs_duty_npr REAL NOT NULL,
+            excise_duty_pct REAL NOT NULL,
+            excise_duty_npr REAL NOT NULL,
+            vat_pct REAL NOT NULL,
+            vat_npr REAL NOT NULL,
+            total_landed_cost_npr REAL NOT NULL,
+            quantity REAL NOT NULL,
+            cost_per_unit_npr REAL NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS bank_transactions (
+            id TEXT PRIMARY KEY NOT NULL,
+            bank_name TEXT NOT NULL,
+            account_number TEXT NOT NULL,
+            transaction_type TEXT NOT NULL,
+            amount_paisa INTEGER NOT NULL,
+            currency TEXT NOT NULL DEFAULT 'NPR',
+            exchange_rate REAL NOT NULL DEFAULT 1.0,
+            purpose TEXT,
+            party_id TEXT,
+            reference TEXT,
+            transaction_date TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS production_records (
+            id TEXT PRIMARY KEY NOT NULL,
+            product_id TEXT NOT NULL,
+            quantity REAL NOT NULL,
+            unit TEXT NOT NULL,
+            batch_number TEXT,
+            production_date TEXT NOT NULL,
+            expiry_date TEXT,
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_landed_cost_created ON landed_cost_calculations(created_at);
     ")?;
+
+    // --- MIGRATIONS (Add columns if they don't exist) ---
+    // We swallow errors here because ALTER TABLE will fail if the column already exists
+    let _ = conn.execute("ALTER TABLE products ADD COLUMN carton_size INTEGER DEFAULT 1", []);
+    let _ = conn.execute("ALTER TABLE products ADD COLUMN carton_weight_kg REAL DEFAULT 0.0", []);
+    let _ = conn.execute("ALTER TABLE invoices ADD COLUMN weight_kg REAL", []);
+    let _ = conn.execute("ALTER TABLE invoices ADD COLUMN no_of_cartons INTEGER", []);
+    let _ = conn.execute("ALTER TABLE invoices ADD COLUMN transport_mode TEXT", []);
+
+    seed_hs_codes(conn);
 
     Ok(())
 }
@@ -502,4 +664,169 @@ fn get_db_path() -> std::path::PathBuf {
     let app_dir = data_dir.join("TradeFlowNepal");
     std::fs::create_dir_all(&app_dir).ok();
     app_dir.join("tradeflow.db")
+}
+
+fn seed_hs_codes(conn: &Connection) {
+    let codes: Vec<(&str, &str, f64, f64, &str, &str)> = vec![
+        // Food & Beverages
+        ("0409.00", "Natural Honey", 10.0, 0.0, "Food & Beverages", "Preferential rate for SAARC: 5%"),
+        ("0901.11", "Coffee (not roasted, not decaffeinated)", 10.0, 0.0, "Food & Beverages", ""),
+        ("0901.21", "Coffee (roasted, not decaffeinated)", 15.0, 0.0, "Food & Beverages", ""),
+        ("0902.10", "Green Tea (unfermented) up to 3kg", 10.0, 0.0, "Food & Beverages", "Nepal's major export product"),
+        ("0902.20", "Green Tea (unfermented) over 3kg", 10.0, 0.0, "Food & Beverages", ""),
+        ("0902.30", "Black Tea (fermented) up to 3kg", 10.0, 0.0, "Food & Beverages", ""),
+        ("0902.40", "Black Tea (fermented) over 3kg", 10.0, 0.0, "Food & Beverages", ""),
+        ("0904.11", "Pepper (not crushed/ground)", 10.0, 0.0, "Food & Beverages", ""),
+        ("0910.11", "Ginger (not crushed/ground)", 5.0, 0.0, "Food & Beverages", ""),
+        ("0910.30", "Turmeric (Curcuma)", 10.0, 0.0, "Food & Beverages", ""),
+        ("1006.30", "Semi-milled or wholly milled Rice", 5.0, 0.0, "Food & Beverages", "Essential commodity"),
+        ("1101.00", "Wheat Flour", 5.0, 0.0, "Food & Beverages", "Essential commodity"),
+        ("1507.10", "Soybean Oil (crude)", 5.0, 0.0, "Food & Beverages", ""),
+        ("1511.10", "Palm Oil (crude)", 5.0, 0.0, "Food & Beverages", "Major import item"),
+        ("1701.99", "Refined Sugar", 15.0, 0.0, "Food & Beverages", ""),
+        ("2106.90", "Food Preparations NES", 15.0, 0.0, "Food & Beverages", ""),
+        ("2202.10", "Mineral/Aerated Waters with Sugar", 30.0, 15.0, "Food & Beverages", "Excise applies"),
+        ("2203.00", "Beer made from Malt", 60.0, 80.0, "Food & Beverages", "High duty + excise"),
+        ("2208.30", "Whisky", 80.0, 100.0, "Food & Beverages", "Highest duty category"),
+        ("2402.20", "Cigarettes containing Tobacco", 80.0, 90.0, "Food & Beverages", "Sin tax category"),
+        // Textiles & Clothing
+        ("5007.20", "Woven Silk Fabric", 15.0, 0.0, "Textiles & Clothing", ""),
+        ("5208.11", "Unbleached Cotton Fabric (plain weave)", 5.0, 0.0, "Textiles & Clothing", ""),
+        ("5208.21", "Bleached Cotton Fabric (plain weave)", 10.0, 0.0, "Textiles & Clothing", ""),
+        ("5209.11", "Unbleached Cotton Twill Fabric", 5.0, 0.0, "Textiles & Clothing", ""),
+        ("5407.10", "Woven Nylon Fabric", 15.0, 0.0, "Textiles & Clothing", ""),
+        ("5701.10", "Carpets (hand-knotted, wool/fine hair)", 5.0, 0.0, "Textiles & Clothing", "Major Nepal export"),
+        ("5702.20", "Floor Coverings (coconut fibres)", 10.0, 0.0, "Textiles & Clothing", ""),
+        ("5801.10", "Woven Pile Fabrics (wool)", 15.0, 0.0, "Textiles & Clothing", ""),
+        ("6101.20", "Men's Overcoats (cotton, knit)", 20.0, 0.0, "Textiles & Clothing", ""),
+        ("6104.43", "Women's Dresses (synthetic, knit)", 20.0, 0.0, "Textiles & Clothing", ""),
+        ("6105.10", "Men's Shirts (cotton, knit)", 20.0, 0.0, "Textiles & Clothing", ""),
+        ("6110.20", "Jerseys/Pullovers (cotton, knit)", 20.0, 0.0, "Textiles & Clothing", ""),
+        ("6117.10", "Shawls/Scarves (knitted)", 15.0, 0.0, "Textiles & Clothing", "Pashmina export category"),
+        ("6214.20", "Shawls/Scarves (wool/fine animal hair)", 15.0, 0.0, "Textiles & Clothing", "Premium Pashmina"),
+        // Herbal & Medicinal
+        ("1211.90", "Plants for pharmacy/perfumery/insecticide", 5.0, 0.0, "Herbal & Medicinal", "Yarsagumba, Chirata, etc."),
+        ("1301.90", "Lac, Natural Gums & Resins", 5.0, 0.0, "Herbal & Medicinal", ""),
+        ("1302.19", "Vegetable Saps & Extracts", 10.0, 0.0, "Herbal & Medicinal", ""),
+        ("3003.90", "Medicaments (unmixed, not dosed)", 5.0, 0.0, "Herbal & Medicinal", ""),
+        ("3004.90", "Medicaments (therapeutic/prophylactic)", 5.0, 0.0, "Herbal & Medicinal", "Essential medicine"),
+        // Handicrafts & Art
+        ("4421.99", "Articles of Wood NES", 15.0, 0.0, "Handicraft & Art", "Wooden handicrafts"),
+        ("6802.99", "Worked Monumental Stone NES", 15.0, 0.0, "Handicraft & Art", "Stone sculptures"),
+        ("6913.90", "Statuettes/Ornamental Ceramics", 15.0, 0.0, "Handicraft & Art", ""),
+        ("7113.19", "Jewellery of Precious Metal", 15.0, 0.0, "Handicraft & Art", ""),
+        ("7117.19", "Imitation Jewellery", 20.0, 0.0, "Handicraft & Art", ""),
+        ("9703.00", "Original Sculptures/Statuary", 5.0, 0.0, "Handicraft & Art", "Thangka, Buddha statues"),
+        // Electronics & Machinery
+        ("8414.80", "Air Pumps/Compressors", 15.0, 0.0, "Electronics & Machinery", ""),
+        ("8415.10", "Window/Wall Type Air Conditioners", 30.0, 15.0, "Electronics & Machinery", "Excise on AC"),
+        ("8418.10", "Combined Refrigerator-Freezers", 30.0, 0.0, "Electronics & Machinery", ""),
+        ("8418.40", "Freezers (upright type)", 30.0, 0.0, "Electronics & Machinery", ""),
+        ("8443.32", "Printing Machines (printers)", 5.0, 0.0, "Electronics & Machinery", ""),
+        ("8450.11", "Washing Machines (fully auto)", 30.0, 0.0, "Electronics & Machinery", ""),
+        ("8471.30", "Laptop Computers", 0.0, 0.0, "Electronics & Machinery", "Duty free for education"),
+        ("8471.41", "Desktop Computers", 0.0, 0.0, "Electronics & Machinery", "Duty free for education"),
+        ("8504.40", "Static Converters (UPS/inverters)", 15.0, 0.0, "Electronics & Machinery", ""),
+        ("8516.10", "Electric Water Heaters", 15.0, 0.0, "Electronics & Machinery", ""),
+        ("8517.12", "Smartphones/Mobile Phones", 10.0, 0.0, "Electronics & Machinery", "High import volume"),
+        ("8517.62", "Network Equipment (routers/modems)", 5.0, 0.0, "Electronics & Machinery", ""),
+        ("8521.90", "Video Recording Apparatus", 15.0, 0.0, "Electronics & Machinery", ""),
+        ("8528.72", "Television Sets", 20.0, 0.0, "Electronics & Machinery", ""),
+        // Vehicles & Parts
+        ("8703.22", "Motor Cars (1000-1500cc)", 80.0, 30.0, "Vehicles & Parts", "Highest duty category"),
+        ("8703.23", "Motor Cars (1500-3000cc)", 80.0, 50.0, "Vehicles & Parts", "Extreme duty for large engines"),
+        ("8703.24", "Motor Cars (over 3000cc)", 80.0, 80.0, "Vehicles & Parts", "Luxury vehicle penalty"),
+        ("8703.80", "Electric Vehicles", 10.0, 5.0, "Vehicles & Parts", "Reduced duty for EVs"),
+        ("8711.20", "Motorcycles (50-250cc)", 40.0, 20.0, "Vehicles & Parts", ""),
+        ("8711.30", "Motorcycles (250-500cc)", 60.0, 30.0, "Vehicles & Parts", ""),
+        ("8711.50", "Electric Motorcycles/Scooters", 10.0, 5.0, "Vehicles & Parts", "Green incentive"),
+        ("8708.30", "Brake Parts for Vehicles", 15.0, 0.0, "Vehicles & Parts", ""),
+        ("8708.99", "Vehicle Parts NES", 15.0, 0.0, "Vehicles & Parts", ""),
+        ("4011.10", "New Pneumatic Rubber Tyres for Cars", 20.0, 0.0, "Vehicles & Parts", ""),
+        // Construction & Building
+        ("2523.29", "Portland Cement", 15.0, 0.0, "Construction & Building", "Major import item"),
+        ("2515.11", "Marble (crude or roughly trimmed)", 15.0, 0.0, "Construction & Building", ""),
+        ("6802.23", "Granite (simply cut)", 15.0, 0.0, "Construction & Building", ""),
+        ("6907.21", "Ceramic Tiles (water absorption <0.5%)", 30.0, 0.0, "Construction & Building", ""),
+        ("6907.23", "Ceramic Tiles (water absorption >10%)", 30.0, 0.0, "Construction & Building", ""),
+        ("7005.29", "Float Glass (non-wired)", 15.0, 0.0, "Construction & Building", ""),
+        ("7210.41", "Corrugated Galvanized Steel Sheets", 15.0, 0.0, "Construction & Building", ""),
+        ("7213.10", "Steel Bars (hot-rolled)", 10.0, 0.0, "Construction & Building", "TMT bars"),
+        ("7306.30", "Steel Tubes/Pipes (welded)", 15.0, 0.0, "Construction & Building", ""),
+        ("7308.90", "Steel Structures/Parts", 15.0, 0.0, "Construction & Building", ""),
+        ("7318.15", "Bolts/Screws (steel)", 15.0, 0.0, "Construction & Building", ""),
+        ("7604.10", "Aluminium Bars/Rods", 15.0, 0.0, "Construction & Building", ""),
+        ("3917.23", "PVC Pipes (rigid)", 15.0, 0.0, "Construction & Building", ""),
+        ("3925.20", "Plastic Doors/Windows/Frames", 20.0, 0.0, "Construction & Building", ""),
+        ("6810.11", "Concrete Blocks/Bricks", 15.0, 0.0, "Construction & Building", ""),
+        // Petroleum & Energy
+        ("2710.12", "Light Petroleum Oils (gasoline)", 15.0, 25.0, "Petroleum & Energy", "Excise on fuel"),
+        ("2710.19", "Medium Petroleum Oils (diesel/kerosene)", 15.0, 20.0, "Petroleum & Energy", "Excise on diesel"),
+        ("2711.12", "Propane (LPG)", 5.0, 0.0, "Petroleum & Energy", "Essential fuel"),
+        ("8541.40", "Solar Cells/Panels", 0.0, 0.0, "Petroleum & Energy", "Duty free - green energy"),
+        ("8507.60", "Lithium-ion Batteries", 5.0, 0.0, "Petroleum & Energy", ""),
+        // Agriculture & Raw Materials
+        ("1001.99", "Wheat (other)", 5.0, 0.0, "Agriculture", "Essential food grain"),
+        ("1005.90", "Maize (other than seed)", 5.0, 0.0, "Agriculture", ""),
+        ("0713.31", "Dried Beans", 5.0, 0.0, "Agriculture", ""),
+        ("0802.32", "Walnuts (shelled)", 10.0, 0.0, "Agriculture", ""),
+        ("0808.10", "Apples", 10.0, 0.0, "Agriculture", "Seasonal import"),
+        ("0805.10", "Oranges", 10.0, 0.0, "Agriculture", ""),
+        ("0803.90", "Bananas", 10.0, 0.0, "Agriculture", ""),
+        ("2304.00", "Soybean Oilcake", 5.0, 0.0, "Agriculture", "Animal feed"),
+        ("3102.30", "Ammonium Nitrate (fertilizer)", 0.0, 0.0, "Agriculture", "Duty free for agriculture"),
+        ("3105.20", "NPK Fertilizers", 0.0, 0.0, "Agriculture", "Duty free"),
+        // Cosmetics & Personal Care
+        ("3303.00", "Perfumes & Toilet Waters", 30.0, 25.0, "Cosmetics & Personal Care", "Luxury excise"),
+        ("3304.10", "Lip Make-up Preparations", 30.0, 0.0, "Cosmetics & Personal Care", ""),
+        ("3304.99", "Beauty/Make-up Preparations NES", 30.0, 0.0, "Cosmetics & Personal Care", ""),
+        ("3305.10", "Shampoos", 20.0, 0.0, "Cosmetics & Personal Care", ""),
+        ("3306.10", "Dentifrices (Toothpaste)", 15.0, 0.0, "Cosmetics & Personal Care", ""),
+        ("3401.11", "Soap (toilet use)", 15.0, 0.0, "Cosmetics & Personal Care", ""),
+        // Paper & Stationery
+        ("4802.56", "Uncoated Paper (40-150gsm, sheets)", 10.0, 0.0, "Paper & Stationery", ""),
+        ("4810.13", "Coated Paper (roll, printing grade)", 10.0, 0.0, "Paper & Stationery", ""),
+        ("4820.10", "Registers/Account Books/Notebooks", 15.0, 0.0, "Paper & Stationery", ""),
+        ("4901.99", "Printed Books/Pamphlets", 0.0, 0.0, "Paper & Stationery", "Duty free for books"),
+        ("4911.10", "Trade Advertising Material", 15.0, 0.0, "Paper & Stationery", ""),
+        // Plastics & Rubber
+        ("3901.10", "Polyethylene (specific gravity <0.94)", 5.0, 0.0, "Plastics & Rubber", "LDPE raw material"),
+        ("3901.20", "Polyethylene (specific gravity >=0.94)", 5.0, 0.0, "Plastics & Rubber", "HDPE raw material"),
+        ("3902.10", "Polypropylene (primary)", 5.0, 0.0, "Plastics & Rubber", ""),
+        ("3923.30", "Plastic Carboys/Bottles", 15.0, 0.0, "Plastics & Rubber", ""),
+        ("3924.10", "Tableware/Kitchenware (plastic)", 20.0, 0.0, "Plastics & Rubber", ""),
+        ("3926.20", "Articles of Apparel (plastic)", 20.0, 0.0, "Plastics & Rubber", ""),
+        ("4002.19", "Styrene-Butadiene Rubber (SBR)", 5.0, 0.0, "Plastics & Rubber", ""),
+        // Furniture
+        ("9401.30", "Swivel Seats (adjustable height)", 20.0, 0.0, "Furniture", ""),
+        ("9401.61", "Wooden Seats (upholstered)", 20.0, 0.0, "Furniture", ""),
+        ("9403.30", "Wooden Office Furniture", 20.0, 0.0, "Furniture", ""),
+        ("9403.50", "Wooden Bedroom Furniture", 20.0, 0.0, "Furniture", ""),
+        ("9403.60", "Other Wooden Furniture", 20.0, 0.0, "Furniture", ""),
+        ("9404.21", "Mattresses (cellular rubber)", 20.0, 0.0, "Furniture", ""),
+        // Gold & Precious Metals
+        ("7108.12", "Gold (non-monetary, unwrought)", 10.0, 0.0, "Gold & Precious Metals", "NRB regulated import"),
+        ("7106.91", "Silver (unwrought)", 10.0, 0.0, "Gold & Precious Metals", ""),
+        ("7110.11", "Platinum (unwrought)", 10.0, 0.0, "Gold & Precious Metals", ""),
+        // Misc Common Imports
+        ("8544.49", "Electric Conductors (<=80V)", 15.0, 0.0, "Electrical", "Cables & wires"),
+        ("8536.20", "Circuit Breakers", 15.0, 0.0, "Electrical", ""),
+        ("8539.50", "LED Lamps", 5.0, 0.0, "Electrical", "Green incentive"),
+        ("8501.10", "Electric Motors (<37.5W)", 5.0, 0.0, "Electrical", ""),
+        ("9018.90", "Medical Instruments NES", 0.0, 0.0, "Medical Equipment", "Duty free for healthcare"),
+        ("9022.14", "X-ray Apparatus (medical/dental)", 0.0, 0.0, "Medical Equipment", "Duty free"),
+        ("9027.80", "Physical/Chemical Analysis Instruments", 5.0, 0.0, "Medical Equipment", ""),
+        ("3808.91", "Insecticides (retail packing)", 5.0, 0.0, "Agriculture", ""),
+        ("8424.41", "Portable Sprayers (agriculture)", 5.0, 0.0, "Agriculture", ""),
+        ("8432.29", "Harrows/Cultivators", 0.0, 0.0, "Agriculture", "Duty free for agri-machinery"),
+        ("8433.51", "Combine Harvester-Threshers", 0.0, 0.0, "Agriculture", "Duty free"),
+        ("8701.91", "Agricultural Tractors (<18kW)", 0.0, 0.0, "Agriculture", "Duty free"),
+    ];
+
+    for (code, desc, cd, ed, cat, notes) in codes {
+        let _ = conn.execute(
+            "INSERT OR IGNORE INTO hs_tariff_codes (code, description, customs_duty_pct, excise_duty_pct, category, notes) VALUES (?1,?2,?3,?4,?5,?6)",
+            rusqlite::params![code, desc, cd, ed, cat, notes],
+        );
+    }
 }

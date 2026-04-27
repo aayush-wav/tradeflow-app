@@ -104,12 +104,12 @@ export function ProfitTargetsPage() {
                 <label className="label-text">Target Profit Margin (%)</label>
                 <div className="relative">
                   <input
-                    type="number"
-                    className="input-field pr-10"
-                    value={targetMargin}
-                    onChange={(e) => setTargetMargin(e.target.value)}
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  type="number"
+                  className="input-field"
+                  value={targetMargin}
+                  onChange={(e) => setTargetMargin(e.target.value)}
+                  placeholder="0.00"
+                />  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
                     %
                   </span>
                 </div>

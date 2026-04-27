@@ -150,37 +150,37 @@ export function PartiesPage({ partyType }: PartiesPageProps) {
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filtered.map((p) => (
-                <tr key={p.id} className="hover:bg-slate-50">
+                <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
                   <td className="px-4 py-3">
-                    <p className="text-sm font-medium text-slate-900">{p.company_name}</p>
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">{p.company_name}</p>
                     {p.pan_number && (
-                      <p className="text-xs text-slate-500">PAN: {p.pan_number}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">PAN: {p.pan_number}</p>
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <p className="text-sm text-slate-700">{p.contact_person || "—"}</p>
-                    <p className="text-xs text-slate-500">{p.email || ""}</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-300">{p.contact_person || "—"}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{p.email || ""}</p>
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-600">{p.country}</td>
-                  <td className="px-4 py-3 text-sm text-slate-600">
+                  <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{p.country}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
                     {p.payment_terms || "—"}
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-600 font-mono">
+                  <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 font-mono">
                     {p.default_currency}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => openEdit(p)}
-                        className="p-1.5 text-slate-400 hover:text-blue-600 rounded"
+                        className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded transition-colors"
                       >
                         <Edit2 size={15} />
                       </button>
                       <button
                         onClick={() => setDeleteTarget(p)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 rounded"
+                        className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded transition-colors"
                       >
                         <Trash2 size={15} />
                       </button>

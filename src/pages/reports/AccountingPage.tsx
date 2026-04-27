@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { PageHeader, PageLoader, EmptyState } from "../../components/shared";
 import { formatCurrency, getCurrentNepalFiscalYear } from "../../utils";
 import type { FinancialStatement } from "../../types";
-import { Landmark, Briefcase, TrendingUp, DollarSign } from "lucide-react";
+import { Building2, Briefcase, TrendingUp, DollarSign } from "lucide-react";
 
 export function AccountingPage() {
   const [statement, setStatement] = useState<FinancialStatement | null>(null);
@@ -91,7 +91,7 @@ export function AccountingPage() {
 
       {/* Balance Sheet Preview */}
       <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 mt-10 flex items-center gap-2">
-        <Landmark className="text-amber-500" /> Balance Sheet Preview
+        <Building2 className="text-amber-500" /> Balance Sheet Preview
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
         <div className="card">
@@ -103,6 +103,12 @@ export function AccountingPage() {
               <span className="text-slate-600 dark:text-slate-400">Accounts Receivable</span>
               <span className="font-medium text-slate-900 dark:text-white">
                 {formatCurrency(statement.total_receivables_paisa)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600 dark:text-slate-400">Cash & Bank Balance</span>
+              <span className="font-medium text-slate-900 dark:text-white">
+                {formatCurrency(statement.cash_balance_paisa)}
               </span>
             </div>
             <div className="flex justify-between items-center">
@@ -125,9 +131,9 @@ export function AccountingPage() {
             <DollarSign size={16} className="text-slate-400" /> Liabilities & Equity
           </h3>
           <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-600 dark:text-slate-400 border-b border-dashed border-slate-300 dark:border-slate-600 cursor-help" title="Comprehensive A/P tracking requires standalone ledger features">Accounts Payable (Suppliers)</span>
-              <span className="font-medium text-slate-400 italic">Not Tracked</span>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-slate-600 dark:text-slate-400 border-b border-dashed border-slate-300 dark:border-slate-700 cursor-help" title="Comprehensive A/P tracking requires standalone ledger features">Accounts Payable (Suppliers)</span>
+              <span className="font-bold text-slate-400 dark:text-slate-600 italic uppercase text-[10px] tracking-widest bg-slate-100 dark:bg-slate-800/50 px-2 py-0.5 rounded">Not Tracked</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-600 dark:text-slate-400">Net Earned Equity (P&L)</span>

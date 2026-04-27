@@ -15,7 +15,7 @@ import type { Route } from "../../types";
 const EMPTY_ROUTE: Partial<Route> = {
   id: "",
   name: "",
-  border_crossing: BORDER_CROSSINGS[0],
+  border_crossing: "",
   transit_country: "India",
   freight_mode: "Sea",
   estimated_freight_cost_paisa: 0,
@@ -36,7 +36,10 @@ export function RoutesPage() {
   }, [fetchRoutes]);
 
   const openCreate = () => {
-    setEditing({ ...EMPTY_ROUTE });
+    setEditing({ 
+      ...EMPTY_ROUTE,
+      estimated_transit_days: "" as any,
+    });
     setCost("");
     setShowModal(true);
   };
@@ -55,6 +58,7 @@ export function RoutesPage() {
         ...EMPTY_ROUTE,
         ...editing,
         estimated_freight_cost_paisa: rupeesToPaisa(parseFloat(cost) || 0),
+        estimated_transit_days: Number(editing.estimated_transit_days) || 0,
       } as Route;
       await saveRoute(route);
       setShowModal(false);
@@ -160,15 +164,16 @@ export function RoutesPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="label-text">Border Crossing</label>
-                <select
-                  className="select-field"
+                <input
+                  className="input-field"
                   value={editing.border_crossing || ""}
                   onChange={(e) => setEditing({ ...editing, border_crossing: e.target.value })}
-                >
-                  {BORDER_CROSSINGS.map((b) => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
+                  placeholder="e.g., Tribhuwan International Airport (TIA)"
+                  list="border-crossings-list"
+                />
+                <datalist id="border-crossings-list">
+                  {BORDER_CROSSINGS.map((b) => <option key={b} value={b} />)}
+                </datalist>
               </div>
               <div>
                 <label className="label-text">Freight Mode</label>
@@ -199,11 +204,12 @@ export function RoutesPage() {
                 <input
                   type="number"
                   className="input-field"
-                  value={editing.estimated_transit_days || 0}
+                  value={editing.estimated_transit_days}
+                  placeholder="0"
                   onChange={(e) =>
                     setEditing({
                       ...editing,
-                      estimated_transit_days: parseInt(e.target.value) || 0,
+                      estimated_transit_days: e.target.value as any,
                     })
                   }
                 />

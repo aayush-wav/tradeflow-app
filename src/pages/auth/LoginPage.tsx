@@ -50,10 +50,10 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 transition-colors duration-200">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-14 h-14 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/20">
             <svg
               className="w-8 h-8 text-white"
               fill="none"
@@ -68,14 +68,14 @@ export function LoginPage() {
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">TradeFlow Nepal</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">TradeFlow</h1>
+          <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 font-bold uppercase tracking-widest text-[10px]">
             Import/Export Business Management
           </p>
         </div>
 
         <div className="card">
-          <h2 className="text-lg font-semibold text-slate-900 mb-6">
+          <h2 className="text-lg font-bold text-slate-800 dark:text-white mb-6">
             {isSignup ? "Create Account" : "Sign In"}
           </h2>
 
@@ -163,7 +163,7 @@ export function LoginPage() {
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+              <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/40 text-red-700 dark:text-red-400 text-sm px-4 py-3 rounded-lg">
                 {error}
               </div>
             )}
@@ -174,15 +174,15 @@ export function LoginPage() {
               className="btn-primary w-full flex items-center justify-center gap-2"
             >
               {isLoading && <LoadingSpinner size="sm" />}
-              {isSignup ? "Create Account" : "Sign In"}
+              {isSignup ? "Get Started" : "Enter Dashboard"}
             </button>
           </form>
 
-          <div className="mt-4 flex flex-col items-center gap-3">
+          <div className="mt-6 flex flex-col items-center gap-4">
             {hasAccount && (
               <button
                 onClick={() => setIsSignup(!isSignup)}
-                className="text-sm text-blue-600 hover:text-blue-700"
+                className="text-sm font-bold text-blue-600 hover:text-blue-500 uppercase tracking-tight"
               >
                 {isSignup
                   ? "Already have an account? Sign in"
@@ -191,17 +191,17 @@ export function LoginPage() {
             )}
             
             <div className="flex items-center gap-2 w-full">
-              <div className="h-px bg-slate-200 flex-1"></div>
-              <span className="text-[10px] text-slate-400 uppercase tracking-widest px-2">OR</span>
-              <div className="h-px bg-slate-200 flex-1"></div>
+              <div className="h-px bg-slate-100 dark:bg-slate-800 flex-1"></div>
+              <span className="text-[10px] text-slate-400 uppercase tracking-widest px-2 font-bold">OR</span>
+              <div className="h-px bg-slate-100 dark:bg-slate-800 flex-1"></div>
             </div>
 
             <button
               onClick={enterDemoMode}
-              className="text-sm font-medium text-slate-600 hover:text-slate-900 flex items-center gap-2 transition-colors"
+              className="text-sm font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center gap-2 transition-colors uppercase tracking-tight"
               type="button"
             >
-              View Live Demo →
+              Explore Live Demo →
             </button>
           </div>
         </div>

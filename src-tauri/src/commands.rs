@@ -181,13 +181,14 @@ pub fn create_product(state: State<DbState>, product: Product) -> ApiResponse<St
     let r = conn.execute(
         "INSERT INTO products (id,product_id,name,category,hs_code,unit_of_measure,
          country_of_origin,description,current_stock,reorder_level,buying_price_paisa,
-         status,created_at,updated_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
+         selling_price_paisa,status,created_at,updated_at,carton_size,carton_weight_kg)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
         params![
             id, product_id, product.name, product.category, product.hs_code,
             product.unit_of_measure, product.country_of_origin, product.description,
             product.current_stock, product.reorder_level, product.buying_price_paisa,
-            product.status, now, now
+            product.selling_price_paisa, product.status, now, now,
+            product.carton_size, product.carton_weight_kg
         ],
     );
     match r { Ok(_) => ApiResponse::ok(id), Err(e) => ApiResponse::err(&e.to_string()) }
@@ -199,12 +200,14 @@ pub fn update_product(state: State<DbState>, product: Product) -> ApiResponse<St
     let now = Utc::now().to_rfc3339();
     let r = conn.execute(
         "UPDATE products SET name=?1,category=?2,hs_code=?3,unit_of_measure=?4,
-         country_of_origin=?5,description=?6,reorder_level=?7,buying_price_paisa=?8,
-         status=?9,updated_at=?10 WHERE id=?11",
+         country_of_origin=?5,description=?6,current_stock=?7,reorder_level=?8,
+         buying_price_paisa=?9,selling_price_paisa=?10,status=?11,updated_at=?12,
+         carton_size=?13,carton_weight_kg=?14 WHERE id=?15",
         params![
             product.name, product.category, product.hs_code, product.unit_of_measure,
-            product.country_of_origin, product.description, product.reorder_level,
-            product.buying_price_paisa, product.status, now, product.id
+            product.country_of_origin, product.description, product.current_stock,
+            product.reorder_level, product.buying_price_paisa, product.selling_price_paisa,
+            product.status, now, product.carton_size, product.carton_weight_kg, product.id
         ],
     );
     match r { Ok(_) => ApiResponse::ok(product.id), Err(e) => ApiResponse::err(&e.to_string()) }
@@ -214,16 +217,21 @@ pub fn update_product(state: State<DbState>, product: Product) -> ApiResponse<St
 pub fn get_products(state: State<DbState>) -> ApiResponse<Vec<Product>> {
     let conn = state.0.lock().unwrap();
     let mut stmt = conn.prepare(
-        "SELECT id,product_id,name,category,hs_code,unit_of_measure,country_of_origin,
-         description,current_stock,reorder_level,buying_price_paisa,selling_price_paisa,
-         status,created_at,updated_at FROM products ORDER BY product_id ASC"
+        "SELECT id, product_id, name, category, hs_code, unit_of_measure, country_of_origin, 
+         description, current_stock, reorder_level, buying_price_paisa, selling_price_paisa, status, 
+         created_at, updated_at, 
+         COALESCE((SELECT SUM(quantity_out) FROM inventory_transactions WHERE product_id = products.id AND transaction_type = 'Sale'), 0) as total_sold,
+         carton_size, carton_weight_kg
+         FROM products ORDER BY name"
     ).unwrap();
     let items: Vec<Product> = stmt.query_map([], |r| Ok(Product {
         id: r.get(0)?, product_id: r.get(1)?, name: r.get(2)?, category: r.get(3)?,
         hs_code: r.get(4)?, unit_of_measure: r.get(5)?, country_of_origin: r.get(6)?,
         description: r.get(7)?, current_stock: r.get(8)?, reorder_level: r.get(9)?,
-        buying_price_paisa: r.get(10)?,
-        status: r.get(11)?, created_at: r.get(12)?, updated_at: r.get(13)?,
+        buying_price_paisa: r.get(10)?, selling_price_paisa: r.get(11)?, status: r.get(12)?, 
+        total_sold: Some(r.get(15)?),
+        carton_size: r.get(16)?, carton_weight_kg: r.get(17)?,
+        created_at: r.get(13)?, updated_at: r.get(14)?,
     })).unwrap().filter_map(|r| r.ok()).collect();
     ApiResponse::ok(items)
 }
@@ -231,7 +239,11 @@ pub fn get_products(state: State<DbState>) -> ApiResponse<Vec<Product>> {
 #[tauri::command]
 pub fn delete_product(state: State<DbState>, id: String) -> ApiResponse<bool> {
     let conn = state.0.lock().unwrap();
-    match conn.execute("DELETE FROM products WHERE id=?1", params![id]) {
+    let _ = conn.execute("DELETE FROM inventory_transactions WHERE product_id=?1", params![&id]);
+    let _ = conn.execute("DELETE FROM production_records WHERE product_id=?1", params![&id]);
+    let _ = conn.execute("DELETE FROM profit_targets WHERE product_id=?1", params![&id]);
+    let _ = conn.execute("UPDATE invoice_items SET product_id=NULL WHERE product_id=?1", params![&id]);
+    match conn.execute("DELETE FROM products WHERE id=?1", params![&id]) {
         Ok(_) => ApiResponse::ok(true),
         Err(e) => ApiResponse::err(&e.to_string()),
     }
@@ -343,7 +355,12 @@ pub fn get_parties(state: State<DbState>, party_type: Option<String>) -> ApiResp
 #[tauri::command]
 pub fn delete_party(state: State<DbState>, id: String) -> ApiResponse<bool> {
     let conn = state.0.lock().unwrap();
-    match conn.execute("DELETE FROM parties WHERE id=?1", params![id]) {
+    let invoice_count: i64 = conn.query_row("SELECT COUNT(*) FROM invoices WHERE party_id=?1", params![&id], |r| r.get(0)).unwrap_or(0);
+    if invoice_count > 0 {
+        return ApiResponse::err("Cannot delete party with existing invoices. Please delete their invoices first.");
+    }
+    let _ = conn.execute("UPDATE bank_transactions SET party_id=NULL WHERE party_id=?1", params![&id]);
+    match conn.execute("DELETE FROM parties WHERE id=?1", params![&id]) {
         Ok(_) => ApiResponse::ok(true),
         Err(e) => ApiResponse::err(&e.to_string()),
     }
@@ -362,8 +379,8 @@ pub fn create_invoice(state: State<DbState>, invoice: Invoice, items: Vec<Invoic
          incoterm,port_of_loading,port_of_discharge,country_of_origin,country_of_destination,
          subtotal_paisa,freight_paisa,insurance_paisa,discount_paisa,vat_paisa,grand_total_paisa,
          currency,exchange_rate,status,terms_and_conditions,notes,shipment_record_id,
-         created_at,updated_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31)",
+         created_at,updated_at,weight_kg,no_of_cartons,transport_mode)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34)",
         params![
             id, invoice.invoice_number, invoice.invoice_type, invoice.invoice_date,
             invoice.due_date, invoice.party_id, invoice.party_name, invoice.party_address,
@@ -374,7 +391,7 @@ pub fn create_invoice(state: State<DbState>, invoice: Invoice, items: Vec<Invoic
             invoice.discount_paisa, invoice.vat_paisa, invoice.grand_total_paisa,
             invoice.currency, invoice.exchange_rate, invoice.status,
             invoice.terms_and_conditions, invoice.notes, invoice.shipment_record_id,
-            now, now
+            now, now, invoice.weight_kg, invoice.no_of_cartons, invoice.transport_mode
         ],
     );
     if let Err(e) = r { return ApiResponse::err(&e.to_string()); }
@@ -427,7 +444,7 @@ pub fn get_invoices(state: State<DbState>) -> ApiResponse<Vec<Invoice>> {
          port_of_loading,port_of_discharge,country_of_origin,country_of_destination,
          subtotal_paisa,freight_paisa,insurance_paisa,discount_paisa,vat_paisa,grand_total_paisa,
          currency,exchange_rate,status,terms_and_conditions,notes,shipment_record_id,
-         created_at,updated_at FROM invoices ORDER BY created_at DESC"
+         created_at,updated_at,weight_kg,no_of_cartons,transport_mode FROM invoices ORDER BY created_at DESC"
     ).unwrap();
     let items: Vec<Invoice> = stmt.query_map([], |r| Ok(Invoice {
         id: r.get(0)?, invoice_number: r.get(1)?, invoice_type: r.get(2)?,
@@ -441,6 +458,7 @@ pub fn get_invoices(state: State<DbState>) -> ApiResponse<Vec<Invoice>> {
         currency: r.get(23)?, exchange_rate: r.get(24)?, status: r.get(25)?,
         terms_and_conditions: r.get(26)?, notes: r.get(27)?, shipment_record_id: r.get(28)?,
         created_at: r.get(29)?, updated_at: r.get(30)?,
+        weight_kg: r.get(31)?, no_of_cartons: r.get(32)?, transport_mode: r.get(33)?,
     })).unwrap().filter_map(|r| r.ok()).collect();
     ApiResponse::ok(items)
 }
@@ -793,6 +811,7 @@ pub fn get_profit_targets(state: State<DbState>) -> ApiResponse<Vec<ProfitTarget
 pub struct DashboardStats {
     pub total_revenue_paisa: i64,
     pub total_expenses_paisa: i64,
+    pub cash_balance_paisa: i64,
     pub invoices_paid: i64,
     pub invoices_unpaid: i64,
     pub invoices_overdue: i64,
@@ -807,6 +826,7 @@ pub struct FinancialStatement {
     pub cost_of_goods_sold_paisa: i64,
     pub gross_profit_paisa: i64,
     pub total_receivables_paisa: i64,
+    pub cash_balance_paisa: i64,
     pub total_assets_paisa: i64,
 }
 
@@ -844,9 +864,13 @@ pub fn get_financial_statement(state: State<DbState>) -> ApiResponse<FinancialSt
     // Ensure COGS doesn't go negative if closing stock > purchases
     let cogs = (total_purchases - closing_stock).max(0);
     
+    let bank_in: i64 = conn.query_row("SELECT CAST(COALESCE(SUM(amount_paisa * exchange_rate),0) AS INTEGER) FROM bank_transactions WHERE transaction_type='Deposit'", [], |r| r.get(0)).unwrap_or(0);
+    let bank_out: i64 = conn.query_row("SELECT CAST(COALESCE(SUM(amount_paisa * exchange_rate),0) AS INTEGER) FROM bank_transactions WHERE transaction_type='Withdrawal'", [], |r| r.get(0)).unwrap_or(0);
+    let cash_balance = bank_in - bank_out;
+
+    let total_assets = closing_stock + total_receivables + cash_balance;
+
     let gross_profit = total_sales - cogs;
-    let bank_balance_proxy = 0; // We lack a true cash ledger, but total_assets needs filling
-    let total_assets = closing_stock + total_receivables + bank_balance_proxy;
 
     ApiResponse::ok(FinancialStatement {
         total_sales_revenue_paisa: total_sales,
@@ -855,6 +879,7 @@ pub fn get_financial_statement(state: State<DbState>) -> ApiResponse<FinancialSt
         cost_of_goods_sold_paisa: cogs,
         gross_profit_paisa: gross_profit,
         total_receivables_paisa: total_receivables,
+        cash_balance_paisa: cash_balance,
         total_assets_paisa: total_assets,
     })
 }
@@ -863,11 +888,17 @@ pub fn get_financial_statement(state: State<DbState>) -> ApiResponse<FinancialSt
 pub fn get_dashboard_stats(state: State<DbState>) -> ApiResponse<DashboardStats> {
     let conn = state.0.lock().unwrap();
     let total_revenue: i64 = conn.query_row(
-        "SELECT COALESCE(SUM(grand_total_paisa),0) FROM invoices WHERE status='Paid'",
+        "SELECT COALESCE(SUM(grand_total_paisa),0) FROM invoices WHERE status IN ('Paid', 'Partially Paid')",
         [], |r| r.get(0)).unwrap_or(0);
     let total_expenses: i64 = conn.query_row(
         "SELECT COALESCE(SUM(total_cost_paisa),0) FROM shipment_records",
         [], |r| r.get(0)).unwrap_or(0);
+    
+    // Calculate Cash Balance: Sum of Bank Inflows - Sum of Bank Outflows
+    let bank_in: i64 = conn.query_row("SELECT CAST(COALESCE(SUM(amount_paisa * exchange_rate),0) AS INTEGER) FROM bank_transactions WHERE transaction_type='Deposit'", [], |r| r.get(0)).unwrap_or(0);
+    let bank_out: i64 = conn.query_row("SELECT CAST(COALESCE(SUM(amount_paisa * exchange_rate),0) AS INTEGER) FROM bank_transactions WHERE transaction_type='Withdrawal'", [], |r| r.get(0)).unwrap_or(0);
+    let cash_balance = bank_in - bank_out;
+
     let invoices_paid: i64 = conn.query_row(
         "SELECT COUNT(*) FROM invoices WHERE status='Paid'", [], |r| r.get(0)).unwrap_or(0);
     let invoices_unpaid: i64 = conn.query_row(
@@ -880,6 +911,7 @@ pub fn get_dashboard_stats(state: State<DbState>) -> ApiResponse<DashboardStats>
     ApiResponse::ok(DashboardStats {
         total_revenue_paisa: total_revenue,
         total_expenses_paisa: total_expenses,
+        cash_balance_paisa: cash_balance,
         invoices_paid, invoices_unpaid, invoices_overdue, low_stock_count,
     })
 }
@@ -898,11 +930,360 @@ pub fn get_monthly_revenue(state: State<DbState>) -> ApiResponse<Vec<MonthlyReve
         "SELECT strftime('%Y-%m', invoice_date) as month,
          COALESCE(SUM(grand_total_paisa), 0) as revenue,
          COUNT(*) as cnt
-         FROM invoices WHERE status='Paid'
+         FROM invoices WHERE status IN ('Paid', 'Sent', 'Partially Paid')
          GROUP BY month ORDER BY month DESC LIMIT 12"
     ).unwrap();
     let items: Vec<MonthlyRevenue> = stmt.query_map([], |r| Ok(MonthlyRevenue {
         month: r.get(0)?, revenue_paisa: r.get(1)?, invoice_count: r.get(2)?,
     })).unwrap().filter_map(|r| r.ok()).collect();
     ApiResponse::ok(items)
+}
+
+#[tauri::command]
+pub fn get_invoice_by_id(state: State<DbState>, id: String) -> ApiResponse<Invoice> {
+    let conn = state.0.lock().unwrap();
+    let stmt = conn.query_row(
+        "SELECT id, invoice_number, invoice_type, invoice_date, due_date, party_id, party_name,
+         party_address, party_country, party_pan, ship_to_name, ship_to_address, incoterm,
+         port_of_loading, port_of_discharge, country_of_origin, country_of_destination,
+         subtotal_paisa, freight_paisa, insurance_paisa, discount_paisa, vat_paisa,
+         grand_total_paisa, currency, exchange_rate, status, terms_and_conditions, notes,
+         shipment_record_id, created_at, updated_at, weight_kg, no_of_cartons, transport_mode
+         FROM invoices WHERE id=?1",
+        params![id],
+        |r| Ok(Invoice {
+            id: r.get(0)?, invoice_number: r.get(1)?, invoice_type: r.get(2)?,
+            invoice_date: r.get(3)?, due_date: r.get(4)?, party_id: r.get(5)?,
+            party_name: r.get(6)?, party_address: r.get(7)?, party_country: r.get(8)?,
+            party_pan: r.get(9)?, ship_to_name: r.get(10)?, ship_to_address: r.get(11)?,
+            incoterm: r.get(12)?, port_of_loading: r.get(13)?, port_of_discharge: r.get(14)?,
+            country_of_origin: r.get(15)?, country_of_destination: r.get(16)?,
+            subtotal_paisa: r.get(17)?, freight_paisa: r.get(18)?, insurance_paisa: r.get(19)?,
+            discount_paisa: r.get(20)?, vat_paisa: r.get(21)?, grand_total_paisa: r.get(22)?,
+            currency: r.get(23)?, exchange_rate: r.get(24)?, status: r.get(25)?,
+            terms_and_conditions: r.get(26)?, notes: r.get(27)?, shipment_record_id: r.get(28)?,
+            created_at: r.get(29)?, updated_at: r.get(30)?,
+            weight_kg: r.get(31)?, no_of_cartons: r.get(32)?, transport_mode: r.get(33)?,
+        })
+    );
+    match stmt { Ok(v) => ApiResponse::ok(v), Err(_) => ApiResponse::err("Not found") }
+}
+
+#[tauri::command]
+pub fn fetch_nrb_forex_rates(state: State<DbState>) -> ApiResponse<ForexSnapshot> {
+    let today = Utc::now().format("%Y-%m-%d").to_string();
+    let url = format!("https://www.nrb.org.np/api/forex/v1/rates?page=1&per_page=5&from={}&to={}", today, today);
+    let response = match reqwest::blocking::get(&url) {
+        Ok(r) => r,
+        Err(_) => return get_cached_forex_rates_inner(&state, &today),
+    };
+    
+    let body: NrbApiResponse = match response.json() {
+        Ok(b) => b,
+        Err(_) => return get_cached_forex_rates_inner(&state, &today),
+    };
+
+    if body.status.code != 200 { return get_cached_forex_rates_inner(&state, &today); }
+
+    let payload = match body.data.payload {
+        Some(p) if !p.is_empty() => p,
+        _ => return get_cached_forex_rates_inner(&state, &today),
+    };
+
+    let latest = &payload[payload.len() - 1];
+    let conn = state.0.lock().unwrap();
+
+    for rate in &latest.rates {
+        let _ = conn.execute(
+            "INSERT OR REPLACE INTO forex_rates_cache (date, iso3, currency_name, unit, buy, sell) VALUES (?1,?2,?3,?4,?5,?6)",
+            params![today, rate.currency.iso3, rate.currency.name, rate.currency.unit, rate.buy, rate.sell],
+        );
+    }
+    drop(conn);
+    get_cached_forex_rates_inner(&state, &today)
+}
+
+fn get_cached_forex_rates_inner(state: &State<DbState>, date: &str) -> ApiResponse<ForexSnapshot> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT iso3, currency_name, unit, buy, sell FROM forex_rates_cache WHERE date=?1 ORDER BY iso3").unwrap();
+    let rates: Vec<ForexRate> = stmt.query_map(params![date], |r| Ok(ForexRate {
+        iso3: r.get(0)?, currency_name: r.get(1)?, unit: r.get(2)?, buy: r.get(3)?, sell: r.get(4)?,
+    })).unwrap().filter_map(|r| r.ok()).collect();
+    if rates.is_empty() { return ApiResponse::err("No cached forex rates found."); }
+    ApiResponse::ok(ForexSnapshot { date: date.to_string(), rates })
+}
+
+#[tauri::command]
+pub fn get_cached_forex_rates(state: State<DbState>) -> ApiResponse<ForexSnapshot> {
+    let today = Utc::now().format("%Y-%m-%d").to_string();
+    get_cached_forex_rates_inner(&state, &today)
+}
+
+#[tauri::command]
+pub fn search_hs_codes(state: State<DbState>, query: String) -> ApiResponse<Vec<HsTariffCode>> {
+    let conn = state.0.lock().unwrap();
+    let search = format!("%{}%", query);
+    let mut stmt = conn.prepare("SELECT code, description, customs_duty_pct, excise_duty_pct, category, notes FROM hs_tariff_codes WHERE code LIKE ?1 OR description LIKE ?1 OR category LIKE ?1 ORDER BY code LIMIT 50").unwrap();
+    let items: Vec<HsTariffCode> = stmt.query_map(params![search], |r| Ok(HsTariffCode {
+        code: r.get(0)?, description: r.get(1)?, customs_duty_pct: r.get(2)?, excise_duty_pct: r.get(3)?, category: r.get(4)?, notes: r.get(5)?,
+    })).unwrap().filter_map(|r| r.ok()).collect();
+    ApiResponse::ok(items)
+}
+
+#[tauri::command]
+pub fn get_all_hs_categories(state: State<DbState>) -> ApiResponse<Vec<String>> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT DISTINCT category FROM hs_tariff_codes ORDER BY category").unwrap();
+    let cats: Vec<String> = stmt.query_map([], |r| r.get(0)).unwrap().filter_map(|r| r.ok()).collect();
+    ApiResponse::ok(cats)
+}
+
+#[tauri::command]
+pub fn calculate_landed_cost(state: State<DbState>, hs_code: String, cif_value: f64, currency: String, exchange_rate: f64, quantity: f64, save: bool) -> ApiResponse<LandedCostCalc> {
+    let conn = state.0.lock().unwrap();
+    let tariff = conn.query_row("SELECT code, description, customs_duty_pct, excise_duty_pct, category, notes FROM hs_tariff_codes WHERE code=?1", params![hs_code], |r| Ok(HsTariffCode { code: r.get(0)?, description: r.get(1)?, customs_duty_pct: r.get(2)?, excise_duty_pct: r.get(3)?, category: r.get(4)?, notes: r.get(5)? }));
+    let tariff = match tariff { Ok(t) => t, Err(_) => return ApiResponse::err("HS Code not found") };
+    let cif_npr = cif_value * exchange_rate;
+    let customs_duty_npr = cif_npr * (tariff.customs_duty_pct / 100.0);
+    let excise_duty_npr = (cif_npr + customs_duty_npr) * (tariff.excise_duty_pct / 100.0);
+    let vat_pct = 13.0;
+    let vat_npr = (cif_npr + customs_duty_npr + excise_duty_npr) * (vat_pct / 100.0);
+    let total = cif_npr + customs_duty_npr + excise_duty_npr + vat_npr;
+    let qty = if quantity > 0.0 { quantity } else { 1.0 };
+    let per_unit = total / qty;
+    let id = Uuid::new_v4().to_string();
+    let now = Utc::now().to_rfc3339();
+    if save {
+        let _ = conn.execute("INSERT INTO landed_cost_calculations (id,hs_code,description,cif_value,currency,exchange_rate,cif_npr,customs_duty_pct,customs_duty_npr,excise_duty_pct,excise_duty_npr,vat_pct,vat_npr,total_landed_cost_npr,quantity,cost_per_unit_npr,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)", params![id, hs_code, tariff.description, cif_value, currency, exchange_rate, cif_npr, tariff.customs_duty_pct, customs_duty_npr, tariff.excise_duty_pct, excise_duty_npr, vat_pct, vat_npr, total, qty, per_unit, now]);
+    }
+    ApiResponse::ok(LandedCostCalc { id, hs_code, description: tariff.description, cif_value, currency, exchange_rate, cif_npr, customs_duty_pct: tariff.customs_duty_pct, customs_duty_npr, excise_duty_pct: tariff.excise_duty_pct, excise_duty_npr, vat_pct, vat_npr, total_landed_cost_npr: total, quantity: qty, cost_per_unit_npr: per_unit, created_at: Some(now) })
+}
+
+#[tauri::command]
+pub fn get_landed_cost_history(state: State<DbState>) -> ApiResponse<Vec<LandedCostCalc>> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT id,hs_code,description,cif_value,currency,exchange_rate,cif_npr,customs_duty_pct,customs_duty_npr,excise_duty_pct,excise_duty_npr,vat_pct,vat_npr,total_landed_cost_npr,quantity,cost_per_unit_npr,created_at FROM landed_cost_calculations ORDER BY created_at DESC LIMIT 50").unwrap();
+    let items: Vec<LandedCostCalc> = stmt.query_map([], |r| Ok(LandedCostCalc { id: r.get(0)?, hs_code: r.get(1)?, description: r.get(2)?, cif_value: r.get(3)?, currency: r.get(4)?, exchange_rate: r.get(5)?, cif_npr: r.get(6)?, customs_duty_pct: r.get(7)?, customs_duty_npr: r.get(8)?, excise_duty_pct: r.get(9)?, excise_duty_npr: r.get(10)?, vat_pct: r.get(11)?, vat_npr: r.get(12)?, total_landed_cost_npr: r.get(13)?, quantity: r.get(14)?, cost_per_unit_npr: r.get(15)?, created_at: r.get(16)? })).unwrap().filter_map(|r| r.ok()).collect();
+    ApiResponse::ok(items)
+}
+
+#[tauri::command]
+pub fn get_bank_transactions(state: State<DbState>) -> ApiResponse<Vec<BankTransaction>> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT id,bank_name,account_number,transaction_type,amount_paisa,currency,exchange_rate,purpose,party_id,reference,transaction_date,created_at FROM bank_transactions ORDER BY transaction_date DESC").unwrap();
+    let items: Vec<BankTransaction> = stmt.query_map([], |r| Ok(BankTransaction { id: r.get(0)?, bank_name: r.get(1)?, account_number: r.get(2)?, transaction_type: r.get(3)?, amount_paisa: r.get(4)?, currency: r.get(5)?, exchange_rate: r.get(6)?, purpose: r.get(7)?, party_id: r.get(8)?, reference: r.get(9)?, transaction_date: r.get(10)?, created_at: r.get(11)? })).unwrap().filter_map(|r| r.ok()).collect();
+    ApiResponse::ok(items)
+}
+
+#[tauri::command]
+pub fn create_bank_transaction(state: State<DbState>, tx: BankTransaction) -> ApiResponse<String> {
+    let conn = state.0.lock().unwrap();
+    let id = Uuid::new_v4().to_string();
+    let now = Utc::now().to_rfc3339();
+    let r = conn.execute("INSERT INTO bank_transactions (id,bank_name,account_number,transaction_type,amount_paisa,currency,exchange_rate,purpose,party_id,reference,transaction_date,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)", params![id, tx.bank_name, tx.account_number, tx.transaction_type, tx.amount_paisa, tx.currency, tx.exchange_rate, tx.purpose, tx.party_id, tx.reference, tx.transaction_date, now]);
+    match r { Ok(_) => ApiResponse::ok(id), Err(e) => ApiResponse::err(&e.to_string()) }
+}
+
+#[tauri::command]
+pub fn delete_bank_transaction(state: State<DbState>, id: String) -> ApiResponse<bool> {
+    let conn = state.0.lock().unwrap();
+    match conn.execute("DELETE FROM bank_transactions WHERE id=?1", params![id]) { Ok(_) => ApiResponse::ok(true), Err(e) => ApiResponse::err(&e.to_string()) }
+}
+
+#[tauri::command]
+pub fn get_production_records(state: State<DbState>) -> ApiResponse<Vec<ProductionRecord>> {
+    let conn = state.0.lock().unwrap();
+    let mut stmt = conn.prepare("SELECT id,product_id,quantity,unit,batch_number,production_date,expiry_date,notes,created_at FROM production_records ORDER BY production_date DESC").unwrap();
+    let items: Vec<ProductionRecord> = stmt.query_map([], |r| Ok(ProductionRecord { id: r.get(0)?, product_id: r.get(1)?, quantity: r.get(2)?, unit: r.get(3)?, batch_number: r.get(4)?, production_date: r.get(5)?, expiry_date: r.get(6)?, notes: r.get(7)?, created_at: r.get(8)? })).unwrap().filter_map(|r| r.ok()).collect();
+    ApiResponse::ok(items)
+}
+
+#[tauri::command]
+pub fn create_production_record(state: State<DbState>, record: ProductionRecord) -> ApiResponse<String> {
+    let conn = state.0.lock().unwrap();
+    let id = Uuid::new_v4().to_string();
+    let now = Utc::now().to_rfc3339();
+    let r = conn.execute("INSERT INTO production_records (id,product_id,quantity,unit,batch_number,production_date,expiry_date,notes,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)", params![id, record.product_id, record.quantity, record.unit, record.batch_number, record.production_date, record.expiry_date, record.notes, now]);
+    if let Err(e) = r { return ApiResponse::err(&e.to_string()); }
+    let tx_id = Uuid::new_v4().to_string();
+    let _ = conn.execute("INSERT INTO inventory_transactions (id,product_id,transaction_type,quantity_in,quantity_out,reference,notes,transaction_date,created_at) VALUES (?1,?2,'Production',?3,0,?4,'Auto-generated from production',?5,?6)", params![tx_id, record.product_id, record.quantity as i64, record.batch_number, record.production_date, now]);
+    let _ = conn.execute("UPDATE products SET current_stock = current_stock + ?1, updated_at=?2 WHERE id=?3", params![record.quantity as i64, now, record.product_id]);
+    ApiResponse::ok(id)
+}
+
+
+#[derive(Debug, Deserialize)]
+pub struct NrbApiResponse {
+    pub status: NrbApiStatus,
+    pub data: NrbApiData,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NrbApiStatus {
+    pub code: i32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NrbApiData {
+    pub payload: Option<Vec<NrbPayload>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NrbPayload {
+    pub date: String,
+    pub rates: Vec<NrbRate>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NrbRate {
+    pub currency: NrbCurrency,
+    pub buy: String,
+    pub sell: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NrbCurrency {
+    pub iso3: String,
+    pub name: String,
+    pub unit: i32,
+}
+
+#[tauri::command]
+pub fn seed_demo_data(state: tauri::State<crate::db::DbState>) -> ApiResponse<bool> {
+    let mut conn = state.0.lock().unwrap();
+    
+    // 1. Clear existing data
+    let _ = conn.execute("DELETE FROM inventory_transactions", []);
+    let _ = conn.execute("DELETE FROM production_records", []);
+    let _ = conn.execute("DELETE FROM invoice_items", []);
+    let _ = conn.execute("DELETE FROM invoices", []);
+    let _ = conn.execute("DELETE FROM parties", []);
+    let _ = conn.execute("DELETE FROM products", []);
+    let _ = conn.execute("DELETE FROM company_profile", []);
+    let _ = conn.execute("DELETE FROM landed_cost_calculations", []);
+    let _ = conn.execute("DELETE FROM bank_transactions", []);
+
+    let now = Utc::now();
+    let now_iso = now.to_rfc3339();
+
+    // 2. Company Profile
+    let company_id = Uuid::new_v4().to_string();
+    let _ = conn.execute(
+        "INSERT INTO company_profile (id,company_name,owner_name,pan_number,vat_number,registration_number,
+         phone_primary,email,street,ward_no,municipality,district,province,bank_name,bank_account_number,
+         bank_account_name,bank_branch,swift_code,default_currency,fiscal_year_start_month,created_at,updated_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22)",
+        params![
+            company_id, "TradeFlow Nepal Exports", "Aayush Sharma", "609876543", "609876543",
+            "OCR-88219/081", "+977-1-4412345", "exports@tradeflow.com.np", "Lazimpat", "2", "Kathmandu",
+            "Kathmandu", "Bagmati", "Himalayan Bank Ltd.", "00123456789012", "TradeFlow Nepal Exports",
+            "Corporate Branch", "HIMANPKA", "NPR", 7, now_iso, now_iso
+        ]
+    );
+
+    // 3. Products
+    let product_data = vec![
+        ("PRD-0001", "Ilam Orthodox Black Tea", "Tea", "0902.10", "kg", 85000, 145000, 24, 1.2),
+        ("PRD-0002", "Handcrafted Pashmina Shawl", "Handicraft", "5107.10", "pc", 450000, 850000, 50, 0.4),
+        ("PRD-0003", "Himalayan Wild Honey", "Food", "0409.00", "bottle", 65000, 110000, 12, 0.8),
+        ("PRD-0004", "Nepalese Coffee Bean", "Food", "0901.11", "kg", 120000, 210000, 10, 1.0),
+        ("PRD-0005", "Turmeric Powder (Hand-ground)", "Spices", "0910.30", "kg", 35000, 75000, 20, 0.5),
+    ];
+
+    let mut product_ids = Vec::new();
+    for (pid, name, cat, hs, unit, buy, sell, csize, cweight) in product_data {
+        let id = Uuid::new_v4().to_string();
+        product_ids.push(id.clone());
+        let _ = conn.execute(
+            "INSERT INTO products (id,product_id,name,category,hs_code,unit_of_measure,current_stock,reorder_level,
+             buying_price_paisa,selling_price_paisa,status,created_at,updated_at,carton_size,carton_weight_kg)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,'Active',?11,?11,?12,?13)",
+            params![id, pid, name, cat, hs, unit, 500, 100, buy, sell, now_iso, csize, cweight]
+        );
+        // Add initial stock transaction
+        let _ = conn.execute(
+            "INSERT INTO inventory_transactions (id,product_id,transaction_type,quantity_in,quantity_out,reference,notes,transaction_date,created_at)
+             VALUES (?1,?2,'Purchase',500,0,'Opening Stock','Initial demo stock',?3,?4)",
+            params![Uuid::new_v4().to_string(), id, now_iso, now_iso]
+        );
+    }
+
+    // 4. Parties
+    let mut party_ids = Vec::new();
+    let parties = vec![
+        ("Customer", "Everest Tea House", "John Smith", "USA", "New York", "Net 30"),
+        ("Customer", "Dubai Goods Mart", "Ahmed Abdullah", "UAE", "Deira, Dubai", "Advance"),
+        ("Supplier", "Ilam Tea Farmers Co-op", "Bikash Gurung", "Nepal", "Ilam-4", "Cash"),
+    ];
+
+    for (p_type, name, contact, country, addr, terms) in parties {
+        let id = Uuid::new_v4().to_string();
+        party_ids.push(id.clone());
+        let _ = conn.execute(
+            "INSERT INTO parties (id,party_type,company_name,contact_person,country,address,payment_terms,default_currency,created_at,updated_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,'USD',?8,?8)",
+            params![id, p_type, name, contact, country, addr, terms, now_iso]
+        );
+    }
+
+    // 5. Invoices (Sample past invoices)
+    let inv1_id = Uuid::new_v4().to_string();
+    let _ = conn.execute(
+        "INSERT INTO invoices (id,invoice_number,invoice_type,invoice_date,due_date,party_id,party_name,party_address,
+         party_country,subtotal_paisa,grand_total_paisa,currency,exchange_rate,status,created_at,updated_at,weight_kg,no_of_cartons,transport_mode)
+         VALUES (?1,'TFL-001','Commercial','2026-04-01','2026-05-01',?2,'Everest Tea House','New York','USA',290000,290000,'USD',133.5,'Paid',?3,?3,120,5,'Air')",
+        params![inv1_id, party_ids[0], now_iso]
+    );
+
+    let _ = conn.execute(
+        "INSERT INTO invoice_items (id,invoice_id,product_id,description,quantity,unit,unit_price_paisa,amount_paisa)
+         VALUES (?1,?2,?3,'Ilam Orthodox Black Tea',200,'kg',1450,290000)",
+        params![Uuid::new_v4().to_string(), inv1_id, product_ids[0]]
+    );
+
+    // Stock deduction for invoice
+    let _ = conn.execute(
+        "UPDATE products SET current_stock = current_stock - 200 WHERE id = ?1",
+        params![product_ids[0]]
+    );
+    let _ = conn.execute(
+        "INSERT INTO inventory_transactions (id,product_id,transaction_type,quantity_in,quantity_out,reference,notes,transaction_date,created_at)
+         VALUES (?1,?2,'Sale',0,200,'TFL-001','Demo sale',?3,?3)",
+        params![Uuid::new_v4().to_string(), product_ids[0], now_iso]
+    );
+    
+    // Add older invoices for chart data
+    let past_months = vec![
+        ("2026-03-15", 350000, "Paid"),
+        ("2026-02-10", 420000, "Paid"),
+        ("2026-01-20", 280000, "Paid"),
+        ("2025-12-05", 510000, "Paid"),
+        ("2025-11-18", 390000, "Paid"),
+        ("2025-10-22", 450000, "Paid"),
+    ];
+
+    for (i, (date, amount, status)) in past_months.iter().enumerate() {
+        let inv_id = Uuid::new_v4().to_string();
+        let _ = conn.execute(
+            "INSERT INTO invoices (id,invoice_number,invoice_type,invoice_date,due_date,party_id,party_name,party_address,
+             party_country,subtotal_paisa,grand_total_paisa,currency,exchange_rate,status,created_at,updated_at,weight_kg,no_of_cartons,transport_mode)
+             VALUES (?1,?2,'Commercial',?3,?3,?4,'Everest Tea House','New York','USA',?5,?5,'USD',133.5,?6,?7,?7,120,5,'Air')",
+            params![inv_id, format!("TFL-OLD-{:03}", i + 1), date, party_ids[0], amount, status, now_iso]
+        );
+    }
+
+
+    // 6. Bank Transactions
+    let _ = conn.execute(
+        "INSERT INTO bank_transactions (id,bank_name,account_number,transaction_type,amount_paisa,currency,exchange_rate,purpose,reference,transaction_date,created_at)
+         VALUES (?1,'Nabil Bank','1234567890','Deposit',290000,'USD',133.5,'TFL-001 Payment','DEMO-REF-001',?2,?2)",
+        params![Uuid::new_v4().to_string(), now_iso]
+    );
+    let _ = conn.execute(
+        "INSERT INTO bank_transactions (id,bank_name,account_number,transaction_type,amount_paisa,currency,exchange_rate,purpose,reference,transaction_date,created_at)
+         VALUES (?1,'Himalayan Bank','00123456789012','Withdrawal',4500000,'NPR',1.0,'Office Rent','RENT-APR',?2,?2)",
+        params![Uuid::new_v4().to_string(), now_iso]
+    );
+
+    ApiResponse::ok(true)
 }

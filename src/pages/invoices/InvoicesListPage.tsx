@@ -104,7 +104,11 @@ export function InvoicesListPage() {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filtered.map((inv) => (
-                <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 cursor-pointer transition-colors">
+                <tr
+                  key={inv.id}
+                  onClick={() => navigate(`/invoices/${inv.id}`)}
+                  className="hover:bg-slate-50 dark:hover:bg-slate-900/50 cursor-pointer transition-colors"
+                >
                   <td className="px-4 py-3 text-sm font-medium text-blue-600 dark:text-blue-400 font-mono">
                     {inv.invoice_number}
                   </td>
